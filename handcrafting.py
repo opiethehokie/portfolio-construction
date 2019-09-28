@@ -1,3 +1,5 @@
+# from https://gist.github.com/robcarver17/c2e9c594af31894b9942396f719da449
+
 """
 Implement the handcrafting method
 
@@ -230,15 +232,10 @@ class Portfolio():
         :param top_level_weights: (optionally) pass a list, same length as top level. Used for partioning to hit risk target.
         """
 
-        #cov_matrix = self._regularize_returns(instrument_returns)
-        cov_matrix = self._perturb_returns(instrument_returns)
-
         self.instrument_returns = instrument_returns
         self.instruments = list(instrument_returns.columns)
-        #self.corr_matrix = instrument_returns.corr()
-        self.corr_matrix = self._cov2corr(cov_matrix)
-        #self.vol_vector = np.array(instrument_returns.std() * (WEEKS_IN_YEAR ** .5))
-        self.vol_vector = np.array(self._cov2std(cov_matrix) * (WEEKS_IN_YEAR ** .5))
+        self.corr_matrix = instrument_returns.corr()
+        self.vol_vector = np.array(instrument_returns.std() * (WEEKS_IN_YEAR ** .5))
         self.returns_vector = np.array(instrument_returns.mean() * WEEKS_IN_YEAR)
         self.sharpe_ratio = self.returns_vector / self.vol_vector
 
@@ -247,33 +244,6 @@ class Portfolio():
         self.use_SR_estimates = use_SR_estimates
         self.top_level_weights = top_level_weights
         self.log = log
-
-    def _regularize_returns(self, returns):
-        #return returns.corr()
-        #return returns.cov()
-        regularized_cov = LedoitWolf().fit(returns).covariance_
-        #regularized_cov = OAS().fit(returns).covariance_
-        return pd.DataFrame(regularized_cov, columns=returns.columns)
-    
-    # https://blog.thinknewfound.com/2016/10/shock-covariance-system/
-    def _perturb_returns(self, returns):
-        perturbed_covs = []
-        for i in range(1000):
-            eig_vals, eig_vecs = np.linalg.eig(returns.cov())
-            kth_eig_val = np.random.choice(eig_vals, p=[v / eig_vals.sum() for v in eig_vals])
-            k = np.nonzero(eig_vals == kth_eig_val)
-            perturbed_kth_eig_val = kth_eig_val * math.exp(np.random.normal(0, 1))
-            eig_vals[k] = perturbed_kth_eig_val
-            perturbed_covs.append(np.linalg.multi_dot([eig_vecs, np.diag(eig_vals), eig_vecs.T]))
-        perturbed_cov = np.mean(np.array(perturbed_covs), axis=0)
-        return pd.DataFrame(perturbed_cov, columns=returns.columns)
-    
-    def _cov2std(self, cov):
-        return np.sqrt(np.diag(cov))
-    
-    def _cov2corr(self, cov):
-        std = self._cov2std(cov)
-        return cov / np.outer(std, std)
 
     def __repr__(self):
         return "Portfolio with %d instruments" % len(self.instruments)
@@ -935,5 +905,51 @@ class Portfolio():
 
             return diags
 
-#p=Portfolio(returns)
+#------------------------------------------------------------------------------
 
+# https://qoppac.blogspot.com/2018/12/portfolio-construction-through.html
+# https://qoppac.blogspot.com/2018/12/portfolio-construction-through_7.html
+# https://qoppac.blogspot.com/2018/12/portfolio-construction-through_14.html
+
+import requests_cache
+import datetime
+import sys
+import pprint
+import yfinance as yf
+
+from pandas_datareader import data as pdr
+
+yf.pdr_override()
+
+tickers = ['LEMB','SGOL','PPEM','PDBC','PPLC','PPSC','LTPZ','VNQ','VNQI','JPHY','PPDM','TMF','TYD','DIVY','BTAL']
+
+# https://blog.thinknewfound.com/2017/11/risk-parity-much-data-use-estimating-volatilities-correlations/
+expire_after = datetime.timedelta(days=1)
+start = datetime.datetime(2018, 3, 20)
+end = datetime.datetime(2019, 9, 13)
+
+allow_leverage = True
+risk_target = NO_RISK_TARGET
+use_SR_estimates = False
+top_level_weights = NO_TOP_LEVEL_WEIGHTS
+
+def calc_weekly_return_percents(ticker):
+    session = requests_cache.CachedSession(cache_name=ticker, backend='sqlite', expire_after=expire_after)
+    data = pdr.get_data_yahoo(ticker, start=start, end=end, session=session)
+    close = data['Adj Close']
+    close.index = pd.to_datetime(close.index)
+    weekly_close = close.resample('W-FRI').ffill()
+    new_values = weekly_close[1:].values
+    old_values = weekly_close[:-1].values
+    return (new_values - old_values) / old_values
+    # https://mathbabe.org/2011/08/30/why-log-returns/
+    #return np.log(np.divide(new_values, old_values))
+
+returns = pd.DataFrame(dict([(ticker, calc_weekly_return_percents(ticker)) for ticker in tickers]))
+
+p=Portfolio(returns, risk_target=risk_target, top_level_weights=top_level_weights, allow_leverage=allow_leverage, use_SR_estimates=use_SR_estimates)
+print(p.corr_matrix)
+#print('sharpe ratios: ', p.sharpe_ratio)
+##print(p.diags)
+pprint.pprint(p.show_subportfolio_tree())
+pprint.pprint(dict([(instr, round(wt * 100, 1)) for instr, wt in zip(p.instruments, p.cash_weights)]))
