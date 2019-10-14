@@ -69,30 +69,16 @@ def getHRP(cov,corr):
 
 from datetime import date, timedelta
 from dateutil.relativedelta import relativedelta
-import math
-import requests_cache
-import yfinance as yf
-import warnings
-
-from pandas_datareader import data as pdr
 from scipy.cluster.hierarchy import ClusterWarning
 from sklearn.covariance import LedoitWolf
 
-yf.pdr_override()
+import math
+import warnings
+
+from lib import get_returns
+
 np.random.seed(42)
 warnings.filterwarnings('ignore', category=ClusterWarning)
-
-def get_returns(tickers, start, end):
-  session = requests_cache.CachedSession(backend='sqlite', expire_after=timedelta(days=1))
-  data = pdr.get_data_yahoo(tickers, start=start, end=end, session=session)
-  close = data['Adj Close']
-  close.index = pd.to_datetime(close.index)
-  #new_values = close[1:].values
-  #old_values = close[:-1].values
-  #return np.log(np.divide(new_values, old_values))
-  #return (new_values - old_values) / old_values
-  returns = close.pct_change(1).dropna()
-  return returns
 
 # https://scikit-learn.org/stable/modules/generated/sklearn.covariance.LedoitWolf.html#sklearn.covariance.LedoitWolf
 def regularize_cov(returns):
