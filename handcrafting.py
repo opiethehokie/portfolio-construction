@@ -921,7 +921,7 @@ from pandas_datareader import data as pdr
 
 yf.pdr_override()
 
-tickers = ['LEMB','SGOL','PPEM','PDBC','PPLC','PPSC','LTPZ','VNQ','VNQI','JPHY','PPDM','TMF','TYD','DIVY','BTAL']
+tickers = ['JPHY','LEMB','SGOL','PPEM','PDBC','UPRO','LTPZ','VNQ','VNQI','PPDM','TMF','TYD','BTAL','DIVY','PUTW','PBP']
 
 # https://blog.thinknewfound.com/2017/11/risk-parity-much-data-use-estimating-volatilities-correlations/
 expire_after = datetime.timedelta(days=1)

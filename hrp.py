@@ -104,11 +104,11 @@ def cov2corr(cov):
   std = np.sqrt(np.diag(cov))
   return pd.DataFrame(cov / np.outer(std, std)).set_index(cov.index)
 
-tickers = ['JPHY','LEMB','SGOL','PPEM','PDBC','PPLC','PPSC','LTPZ','VNQ','VNQI','PPDM','TMF','TYD','BTAL']
+tickers = ['JPHY','LEMB','SGOL','PPEM','PDBC','UPRO','LTPZ','VNQ','VNQI','PPDM','TMF','TYD','BTAL','DIVY','PUTW','PBP','RWSL']
 returns = get_returns(tickers, date.today() + relativedelta(months=-6), date.today())
 hrps = []
 
-cov, corr = returns.cov(), returns.corr()
+cov, corr = returns.cov(), returns.corr(method='pearson')
 hrps.append(getHRP(cov, corr))
 
 cov = perturb_returns(returns)
@@ -117,7 +117,7 @@ hrps.append(getHRP(cov, corr))
 
 returns = get_returns(tickers, date.today() + relativedelta(months=-18), date.today())
 
-cov, corr = returns.cov(), returns.corr()
+cov, corr = returns.cov(), returns.corr(method='spearman')
 hrps.append(getHRP(cov, corr))
 
 cov = perturb_returns(returns)
