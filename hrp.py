@@ -104,8 +104,10 @@ def cov2corr(cov):
   std = np.sqrt(np.diag(cov))
   return pd.DataFrame(cov / np.outer(std, std)).set_index(cov.index)
 
-tickers = ['JPHY','LEMB','SGOL','PPEM','PDBC','UPRO','LTPZ','VNQ','VNQI','PPDM','TMF','TYD','BTAL','DIVY','PUTW','PBP','RWSL']
-returns = get_returns(tickers, date.today() + relativedelta(months=-6), date.today())
+#TODO this should be something like average of rolling 3-month and 5-year with enough history
+
+tickers = ['PPLC','PPDM','PPEM','VNQ','VNQI','SGOL','PDBC','BKLN','VTIP','TYD','EDV','LEMB']
+returns = get_returns(tickers, date.today() + relativedelta(months=-3), date.today())
 hrps = []
 
 cov, corr = returns.cov(), returns.corr(method='pearson')

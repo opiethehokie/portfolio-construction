@@ -921,12 +921,13 @@ from pandas_datareader import data as pdr
 
 yf.pdr_override()
 
-tickers = ['JPHY','LEMB','SGOL','PPEM','PDBC','UPRO','LTPZ','VNQ','VNQI','PPDM','TMF','TYD','BTAL','DIVY','PUTW','PBP']
+
+tickers = ['PPLC','PPDM','PPEM','VNQ','VNQI','SGOL','PDBC','BKLN','VTIP','TYD','EDV','LEMB']
 
 # https://blog.thinknewfound.com/2017/11/risk-parity-much-data-use-estimating-volatilities-correlations/
 expire_after = datetime.timedelta(days=1)
-start = datetime.datetime(2018, 3, 20)
-end = datetime.datetime(2019, 9, 13)
+start = datetime.datetime(2018, 8, 6)
+end = datetime.datetime(2019, 12, 27)
 
 allow_leverage = True
 risk_target = NO_RISK_TARGET
