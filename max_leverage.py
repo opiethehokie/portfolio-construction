@@ -5,8 +5,8 @@ from dateutil.relativedelta import relativedelta
 
 from lib import get_returns
 
-tickers = ['SPY','VTI','EFA','IEF','TLT','VWO']
-returns = get_returns(tickers, date.today() + relativedelta(months=-180), date.today()) # 15 years
+tickers = ['VOO','VEA','VWO']
+returns = get_returns(tickers, date.today() + relativedelta(months=-120), date.today()) # 10 years
 
 mean_daily_returns = returns.mean(axis=0)
 var = returns.std() * returns.std()

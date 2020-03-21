@@ -912,22 +912,23 @@ class Portfolio():
 # https://qoppac.blogspot.com/2018/12/portfolio-construction-through_14.html
 
 import requests_cache
-import datetime
 import sys
 import pprint
 import yfinance as yf
 
+from datetime import date, timedelta
+from dateutil.relativedelta import relativedelta
 from pandas_datareader import data as pdr
 
 yf.pdr_override()
 
 
-tickers = ['PPLC','PPDM','PPEM','VNQ','VNQI','SGOL','PDBC','BKLN','VTIP','TYD','EDV','LEMB']
+tickers = ['PPLC','PPDM','PPEM','VNQ','VNQI','SGOL','PDBC','BKLN','VTIP','TYD','EDV','BWX','VWOB']
 
 # https://blog.thinknewfound.com/2017/11/risk-parity-much-data-use-estimating-volatilities-correlations/
-expire_after = datetime.timedelta(days=1)
-start = datetime.datetime(2018, 8, 6)
-end = datetime.datetime(2019, 12, 27)
+expire_after = timedelta(days=1)
+start = date.today() + relativedelta(months=-3)
+end = date.today()
 
 allow_leverage = True
 risk_target = NO_RISK_TARGET

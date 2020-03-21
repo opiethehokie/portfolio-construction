@@ -106,11 +106,11 @@ def cov2corr(cov):
 
 #TODO this should be something like average of rolling 3-month and 5-year with enough history
 
-tickers = ['PPLC','PPDM','PPEM','VNQ','VNQI','SGOL','PDBC','BKLN','VTIP','TYD','EDV','LEMB']
+tickers = ['PPLC','PPDM','PPEM','VNQ','VNQI','SGOL','PDBC','BKLN','VTIP','TYD','EDV','BWX','VWOB']
 returns = get_returns(tickers, date.today() + relativedelta(months=-3), date.today())
 hrps = []
 
-cov, corr = returns.cov(), returns.corr(method='pearson')
+cov, corr = returns.cov(), returns.corr(method='spearman')
 hrps.append(getHRP(cov, corr))
 
 cov = perturb_returns(returns)
@@ -119,7 +119,7 @@ hrps.append(getHRP(cov, corr))
 
 returns = get_returns(tickers, date.today() + relativedelta(months=-18), date.today())
 
-cov, corr = returns.cov(), returns.corr(method='spearman')
+cov, corr = returns.cov(), returns.corr(method='pearson')
 hrps.append(getHRP(cov, corr))
 
 cov = perturb_returns(returns)
