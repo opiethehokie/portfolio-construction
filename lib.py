@@ -1,9 +1,12 @@
+import warnings
+
 from datetime import date, timedelta
 
 import pandas as pd
 import requests_cache
 import yfinance as yf
 
+warnings.simplefilter(action='ignore', category=FutureWarning)
 from pandas_datareader import data as pdr
 
 yf.pdr_override()
