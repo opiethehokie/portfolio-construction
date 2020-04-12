@@ -75,7 +75,7 @@ from sklearn.covariance import LedoitWolf
 import math
 import warnings
 
-from lib import get_returns
+from lib import get_daily_returns
 
 np.random.seed(42)
 warnings.filterwarnings('ignore', category=ClusterWarning)
@@ -90,7 +90,7 @@ def perturb_returns(returns, n=1000):
   cov = regularize_cov(returns)
   #cov = returns.cov()
   perturbed_covs = []
-  for i in range(n):
+  for _ in range(n):
     eig_vals, eig_vecs = np.linalg.eig(cov)
     kth_eig_val = np.random.choice(eig_vals, p=[v / eig_vals.sum() for v in eig_vals])
     k = np.nonzero(eig_vals == kth_eig_val)
@@ -104,10 +104,8 @@ def cov2corr(cov):
   std = np.sqrt(np.diag(cov))
   return pd.DataFrame(cov / np.outer(std, std)).set_index(cov.index)
 
-#TODO this should be something like average of rolling 3-month and 5-year with enough history
-
 tickers = ['PPLC','PPDM','PPEM','VNQ','VNQI','SGOL','PDBC','BKLN','VTIP','TYD','EDV','BWX','VWOB']
-returns = get_returns(tickers, date.today() + relativedelta(months=-3), date.today())
+returns = get_daily_returns(tickers, date.today() + relativedelta(months=-3), date.today())
 hrps = []
 
 cov, corr = returns.cov(), returns.corr(method='spearman')
@@ -117,7 +115,9 @@ cov = perturb_returns(returns)
 corr = cov2corr(cov)
 hrps.append(getHRP(cov, corr))
 
-returns = get_returns(tickers, date.today() + relativedelta(months=-18), date.today())
+# https://blog.thinknewfound.com/2017/11/risk-parity-much-data-use-estimating-volatilities-correlations/
+#TODO this range should expand when there is enough history
+returns = get_daily_returns(tickers, date.today() + relativedelta(months=-18), date.today())
 
 cov, corr = returns.cov(), returns.corr(method='pearson')
 hrps.append(getHRP(cov, corr))

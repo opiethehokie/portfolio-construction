@@ -4,42 +4,37 @@ import scipy.stats as stats
 from datetime import date
 from dateutil.relativedelta import relativedelta
 
-from lib import get_returns
+from lib import get_daily_returns
 
 
-tickers = ['PPLC','PPDM','PPEM','VNQ','VNQI','SGOL','PDBC','BKLN','VTIP','TYD','EDV','VWOB','BWX']
-weights = np.array([.05, .09, .07, .04, .05, .09, .05, .09, .22, .08, .04, .04, .09])
-#tickers = ['NTSX','VIOO','VFMF','VFLQ','VEA','INTF','VSS','ISCF','VWO','EMGF','EWX','FM','VNQ','VNQI','MNA','JPHY','DIVY']
-#weights = np.array([.10, .08, .18, .03, .09, .09, .09, .09, .03, .03, .03, .01, .04, .05, .02, .02, .02])
-#tickers = ['GMOM','WTMF','JPMF','VAMO','VMOT','ROMO','VTI','VXUS','DZK','UPRO','JKL']
-#weights = np.array([.20, .05, .05, .05, .05, .10, .18, .22, .015, .035, .05])
-#tickers = ['VT','VTEB']
-#weights = np.array([.80, .20])
-#tickers = ['VOO','VGIT']
-#weights = np.array([.60, .40])
+trading_days_per_year = 251
+tickers = ['BKLN','BWX','EDV','PDBC','PPDM','PPEM','PPLC','SGOL','TYD','VNQ','VNQI','VTIP','VWOB']
+weights = np.array([.07, .10, .05, .05, .07, .09, .05, .09, .08, .04, .05, .22, .04])
 
 assert len(tickers) == len(weights)
 assert sum(weights) == 1
 
-returns = get_returns(tickers, date.today() + relativedelta(months=-24), date.today())
-weighted_returns = returns * weights
+daily_returns = get_daily_returns(tickers, date.today() + relativedelta(months=-24), date.today())
 
 # https://investresolve.com/blog/tag/independent-bets/
 # https://thequantmba.wordpress.com/2017/06/06/max-diversification-in-python/
 
+weighted_daily_returns = daily_returns * weights
+weighted_daily_portfolio_returns = np.sum(weighted_daily_returns, axis=1)
+weighted_daily_var = weights.T @ daily_returns.cov() @ weights
+
+individual_vol = np.sqrt(trading_days_per_year * daily_returns.var()) * 100
+portfolio_vol = np.sqrt(trading_days_per_year * weighted_daily_var) * 100
+independent_bets = np.divide(weights.T @ daily_returns.std(), np.sqrt(weighted_daily_var))
+portfolio_skew = stats.skew(weighted_daily_portfolio_returns) / np.sqrt(12)
+portfolio_kurtosis = stats.kurtosis(weighted_daily_portfolio_returns) / 12
+
 print()
-independent_bets = np.divide(weights.T @ returns.std(), np.sqrt(weights.T @ returns.cov() @ weights)) # (square of diversification ratio)
-print(independent_bets)
+print(daily_returns.corr())
 print()
-print(returns.corr())
-print()
-individual_vol = np.sqrt(252 * returns.var()) * 100 # about 252 trading days per year
 print(individual_vol.to_string())
 print()
-portfolio_vol = np.sqrt(252 * np.sum(weighted_returns, axis=1).var()) * 100
-print(portfolio_vol)
-print()
-portfolio_skew = stats.skew(np.sum(weighted_returns, axis=1)) # greater than 0 means more right tail than left (good)
-print(portfolio_skew)
-portfolio_kurtosis = stats.kurtosis(np.sum(weighted_returns, axis=1)) # greater than 0 means fatter tails than normal distribution (bad)
-print(portfolio_kurtosis)
+print('total annual vol: %.2f%%' % portfolio_vol)
+print('annual skew: %.2f (positive good)' % portfolio_skew)
+print('annual kurtosis: %.2f (fat tails above 0)' % portfolio_kurtosis)
+print('independent bets: %.2f' % independent_bets)
