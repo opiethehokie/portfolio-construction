@@ -75,7 +75,7 @@ from sklearn.covariance import LedoitWolf
 import math
 import warnings
 
-from lib import get_daily_returns
+from lib import get_daily_returns, get_volume_bar_returns
 
 np.random.seed(42)
 warnings.filterwarnings('ignore', category=ClusterWarning)
@@ -104,25 +104,28 @@ def cov2corr(cov):
   std = np.sqrt(np.diag(cov))
   return pd.DataFrame(cov / np.outer(std, std)).set_index(cov.index)
 
-tickers = ['PPLC','PPDM','PPEM','VNQ','VNQI','SGOL','PDBC','BKLN','VTIP','TYD','EDV','BWX','VWOB']
-returns = get_daily_returns(tickers, date.today() + relativedelta(months=-3), date.today())
-hrps = []
-
-cov, corr = returns.cov(), returns.corr(method='spearman')
-hrps.append(getHRP(cov, corr))
-
-cov = perturb_returns(returns)
-corr = cov2corr(cov)
-hrps.append(getHRP(cov, corr))
-
 # https://blog.thinknewfound.com/2017/11/risk-parity-much-data-use-estimating-volatilities-correlations/
-#TODO this range should expand when there is enough history
-returns = get_daily_returns(tickers, date.today() + relativedelta(months=-18), date.today())
+
+tickers = ['VOO','VEA','VWO','VNQ','VNQI','SGOL','PDBC','BKLN','VTIP','IEF','EDV','BWX','VWOB']
+hrps = []
+end_date = date.today()
+
+returns = get_volume_bar_returns(tickers, date.today() + relativedelta(days=-59), date.today())
 
 cov, corr = returns.cov(), returns.corr(method='pearson')
 hrps.append(getHRP(cov, corr))
 
-cov = perturb_returns(returns)
+returns = get_daily_returns(tickers, end_date + relativedelta(months=-12), end_date)
+
+cov, corr = returns.cov(), returns.corr(method='pearson')
+hrps.append(getHRP(cov, corr))
+
+returns = get_daily_returns(tickers, end_date + relativedelta(months=-60), end_date)
+
+cov, corr = returns.cov(), returns.corr(method='spearman') # non-linear correlation
+hrps.append(getHRP(cov, corr))
+
+cov = perturb_returns(returns) # to simulate a longer horizon i.e. events that didn't happen
 corr = cov2corr(cov)
 hrps.append(getHRP(cov, corr))
 

@@ -25,7 +25,7 @@ def get_daily_returns(tickers, start, end, log=False):
   returns = pd.log(close).diff() if log else close.pct_change(1) # https://mathbabe.org/2011/08/30/why-log-returns/
   return returns.dropna()
 
-def get_volume_bars(tickers, start, end, log=False):
+def get_volume_bar_returns(tickers, start, end, log=False):
   session = requests_cache.CachedSession(backend='sqlite', expire_after=timedelta(days=1))
   # use S&P 500 as a volume proxy instead of tring to combine basket of volume bars
   market_proxy_data = pdr.get_data_yahoo('SPY', start=start, end=end, session=session, interval='5m', auto_adjust=True)
