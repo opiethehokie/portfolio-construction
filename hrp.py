@@ -77,7 +77,7 @@ import warnings
 
 from lib import get_daily_returns, get_volume_bar_returns
 
-np.random.seed(42)
+#np.random.seed(42)
 warnings.filterwarnings('ignore', category=ClusterWarning)
 
 # https://scikit-learn.org/stable/modules/generated/sklearn.covariance.LedoitWolf.html#sklearn.covariance.LedoitWolf

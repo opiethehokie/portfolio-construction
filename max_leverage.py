@@ -10,11 +10,15 @@ from lib import get_daily_returns
 tickers = ['VOO']
 daily_risk_free_rate = (.0092 - .0003) / 250 # ETF ER for leverage instead of 3-month treasury rate
 
-#returns = get_daily_returns(tickers, date.today() + relativedelta(months=-60), date.today()) # constant - should still rebalance at least quarterly -> monthly
-returns = get_daily_returns(tickers, date.today() + relativedelta(days=-60), date.today()) # dynamic based on volatility
+def max_leverage(returns):
+    mean_daily_returns = returns.mean(axis=0)
+    var = returns.std() * returns.std()
+    return (mean_daily_returns - daily_risk_free_rate) / var # ignores skewness and kurtosis
 
-mean_daily_returns = returns.mean(axis=0)
-var = returns.std() * returns.std()
-max_leverage = (mean_daily_returns - daily_risk_free_rate) / var # ignores skewness and kurtosis
+# constant - should still rebalance at least quarterly -> monthly
+returns = get_daily_returns(tickers, date.today() + relativedelta(months=-60), date.today())
+print(max_leverage(returns))
 
-print(max_leverage)
+# dynamic based on volatility
+returns = get_daily_returns(tickers, date.today() + relativedelta(days=-60), date.today())
+print(max_leverage(returns))
