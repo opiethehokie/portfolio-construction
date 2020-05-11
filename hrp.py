@@ -1,132 +1,81 @@
-# by MLdP <lopezdeprado@lbl.gov>
-# Hierarchical Risk Parity
-
-import numpy as np
-import pandas as pd
-import scipy.cluster.hierarchy as sch
-
-# Compute the inverse-variance portfolio
-def getIVP(cov,**kargs):
-  ivp=1./np.diag(cov)
-  ivp/=ivp.sum()
-  return ivp
-
-# Compute variance per cluster
-def getClusterVar(cov,cItems):
-  cov_=cov.loc[cItems,cItems] # matrix slice
-  w_=getIVP(cov_).reshape(-1,1)
-  cVar=np.dot(np.dot(w_.T,cov_),w_)[0,0]
-  return cVar
-
-# Sort clustered items by distance
-def getQuasiDiag(link):
-  link=link.astype(int)
-  sortIx=pd.Series([link[-1,0],link[-1,1]])
-  numItems=link[-1,3] # number of original items
-  while sortIx.max()>=numItems:
-    sortIx.index=range(0,sortIx.shape[0]*2,2) # make space
-    df0=sortIx[sortIx>=numItems] # find clusters
-    i=df0.index;j=df0.values-numItems
-    sortIx[i]=link[j,0] # item 1
-    df0=pd.Series(link[j,1],index=i+1)
-    sortIx=sortIx.append(df0) # item 2
-    sortIx=sortIx.sort_index() # re-sort
-    sortIx.index=range(sortIx.shape[0]) # re-index
-  return sortIx.tolist()
-
-# Compute HRP alloc
-def getRecBipart(cov,sortIx):
-  w=pd.Series(1,index=sortIx)
-  cItems=[sortIx] # initialize all items in one cluster
-  while len(cItems)>0:
-    cItems=[i[j:k] for i in cItems for j,k in ((0, len(i) // 2), (len(i) // 2, len(i))) if len(i)>1] # bi-section
-    for i in range(0,len(cItems),2): # parse in pairs
-      cItems0=cItems[i] # cluster 1
-      cItems1=cItems[i+1] # cluster 2
-      cVar0=getClusterVar(cov,cItems0)
-      cVar1=getClusterVar(cov,cItems1)
-      alpha=1-cVar0/(cVar0+cVar1)
-      w[cItems0]*=alpha # weight 1
-      w[cItems1]*=1-alpha # weight 2
-  return w
-
-# A distance matrix based on correlation, where 0<=d[i,j]<=1
-def correlDist(corr):
-  dist=((1-corr)/2.)**.5 # distance matrix
-  return dist
-
-# Construct a hierarchical portfolio
-def getHRP(cov,corr):
-  corr,cov=pd.DataFrame(corr),pd.DataFrame(cov)
-  dist=correlDist(corr).fillna(0)
-  link=sch.linkage(dist,'single')
-  sortIx=getQuasiDiag(link)
-  sortIx=corr.index[sortIx].tolist() # recover labels
-  hrp=getRecBipart(cov,sortIx)
-  return hrp.sort_index()
-
-#------------------------------------------------------------------------------
-
-from datetime import date, timedelta
-from dateutil.relativedelta import relativedelta
-from scipy.cluster.hierarchy import ClusterWarning
-from sklearn.covariance import LedoitWolf
-
 import math
 import warnings
 
-from lib import get_daily_returns, get_volume_bar_returns
+from datetime import date, timedelta
+from dateutil.relativedelta import relativedelta
 
-#np.random.seed(42)
-warnings.filterwarnings('ignore', category=ClusterWarning)
+import numpy as np
+import pandas as pd
 
-# https://scikit-learn.org/stable/modules/generated/sklearn.covariance.LedoitWolf.html#sklearn.covariance.LedoitWolf
-def regularize_cov(returns):
-  regularized_cov = LedoitWolf().fit(returns).covariance_
-  return pd.DataFrame(regularized_cov, columns=returns.columns, index=returns.columns)
-    
-# https://blog.thinknewfound.com/2016/10/shock-covariance-system/
-def perturb_returns(returns, n=1000):
-  cov = regularize_cov(returns)
-  #cov = returns.cov()
-  perturbed_covs = []
-  for _ in range(n):
-    eig_vals, eig_vecs = np.linalg.eig(cov)
-    kth_eig_val = np.random.choice(eig_vals, p=[v / eig_vals.sum() for v in eig_vals])
-    k = np.nonzero(eig_vals == kth_eig_val)
-    perturbed_kth_eig_val = kth_eig_val * math.exp(np.random.normal(0, 1)) # exponential scaling
-    eig_vals[k] = perturbed_kth_eig_val
-    perturbed_covs.append(np.linalg.multi_dot([eig_vecs, np.diag(eig_vals), eig_vecs.T]))
-  perturbed_cov = np.mean(np.array(perturbed_covs), axis=0)
-  return pd.DataFrame(perturbed_cov, columns=returns.columns, index=returns.columns)
+from lib import get_daily_returns, get_volume_bar_returns, shock_cov_matrix, get_daily_prices
+from lib import get_mutual_info # to remove extra parameters
+from hcaa import HierarchicalClusteringAssetAllocation # for custom weight constraints
+from mlfinlab.codependence.correlation import distance_correlation, angular_distance, absolute_angular_distance, squared_angular_distance
+from mlfinlab.portfolio_optimization.hrp import HierarchicalRiskParity
+from mlfinlab.portfolio_optimization.risk_estimators import RiskEstimators
 
-def cov2corr(cov):
-  std = np.sqrt(np.diag(cov))
-  return pd.DataFrame(cov / np.outer(std, std)).set_index(cov.index)
+# graph theory (tree instead of complete correlation graph) and machine learning (clustering) based optimization
+# instability, concentration, and underperformance improvement on convex optimization (quadratic programming)
+
+tickers = ['PPLC','PPDM','PPEM','VNQ','VNQI','SGOL','PDBC','BKLN','VTIP','TYD','EDV','BWX','VWOB']
+#tickers = ['VOO','VEA','VWO','VNQ','VNQI','SGOL','PDBC','BKLN','VTIP','IEF','EDV','BWX','VWOB']
+end_date = date.today()
+hrps = []
 
 # https://blog.thinknewfound.com/2017/11/risk-parity-much-data-use-estimating-volatilities-correlations/
+def get_returns():
+  short_term_log = get_volume_bar_returns(tickers, date.today() + relativedelta(days=-59), date.today(), log=True)
+  short_term_percent = get_volume_bar_returns(tickers, date.today() + relativedelta(days=-59), date.today(), log=False)
+  med_term_log = get_daily_returns(tickers, date.today() + relativedelta(months=-6), end_date, return_type='log')
+  med_term_percent = get_daily_returns(tickers, end_date + relativedelta(months=-6), end_date, return_type='percent')
+  long_term_frac = get_daily_returns(tickers, end_date + relativedelta(months=-24), end_date, return_type='fractional')
+  long_term_percent = get_daily_returns(tickers, end_date + relativedelta(months=-24), end_date, return_type='percent')
+  return [short_term_log, short_term_percent,
+          med_term_log, med_term_percent,
+          long_term_frac, long_term_percent
+         ]
 
-tickers = ['VOO','VEA','VWO','VNQ','VNQI','SGOL','PDBC','BKLN','VTIP','IEF','EDV','BWX','VWOB']
-hrps = []
-end_date = date.today()
+def get_prices():
+  short_term = get_daily_prices(tickers, end_date + relativedelta(days=-59), end_date)
+  med_term = get_daily_prices(tickers, end_date + relativedelta(months=-6), end_date)
+  long_term = get_daily_prices(tickers, end_date + relativedelta(months=-24), end_date)
+  return [short_term, med_term, long_term]
 
-returns = get_volume_bar_returns(tickers, date.today() + relativedelta(days=-59), date.today())
+multi_returns = get_returns()
+multi_prices = get_prices()
+covariances = ['pearson', distance_correlation, angular_distance, get_mutual_info]
+linkages = ['single', 'complete']
+metrics = ['minimum_variance', 'minimum_standard_deviation', 'equal_weighting', 'expected_shortfall']
+expected_return_types = ['mean', 'exponential']
 
-cov, corr = returns.cov(), returns.corr(method='pearson')
-hrps.append(getHRP(cov, corr))
+for returns in multi_returns:
+  for covariance in covariances:
+    cov = RiskEstimators.corr_to_cov(returns.corr(method=covariance), returns.std())
+    shocked_cov = shock_cov_matrix(returns)
+    # https://mlfinlab.readthedocs.io/en/latest/portfolio_optimisation/hierarchical_risk_parity.html
+    hrp = HierarchicalRiskParity()
+    hrp.allocate(asset_names=returns.columns, covariance_matrix=cov, use_shrinkage=True)
+    hrps.append(hrp.weights.transpose().sort_index())
+    hrp.allocate(asset_names=returns.columns, covariance_matrix=shocked_cov, use_shrinkage=False)
+    hrps.append(hrp.weights.transpose().sort_index())
+  for linkage in linkages:
+    for metric in metrics:
+      for expected_return_type in expected_return_types:
+        # https://mlfinlab.readthedocs.io/en/latest/portfolio_optimisation/hierarchical_clustering_asset_allocation.html
+        hcaa = HierarchicalClusteringAssetAllocation(calculate_expected_returns=expected_return_type)
+        hcaa.allocate(asset_returns=returns, linkage=linkage, allocation_metric=metric, min_weight=.05, max_weight=.2) # can use constraints to target vol
+        hrps.append(hcaa.weights.transpose().sort_index())
 
-returns = get_daily_returns(tickers, end_date + relativedelta(months=-12), end_date)
+for prices in multi_prices:
+  for linkage in linkages:
+    for metric in metrics:
+      for expected_return_type in expected_return_types:
+        hcaa = HierarchicalClusteringAssetAllocation(calculate_expected_returns=expected_return_type)
+        hcaa.allocate(asset_prices=prices, linkage=linkage, allocation_metric='sharpe_ratio')
+        hrps.append(hcaa.weights.transpose().sort_index())
 
-cov, corr = returns.cov(), returns.corr(method='pearson')
-hrps.append(getHRP(cov, corr))
+soft_majority_vote_hrp = pd.concat(hrps).groupby(level=0).mean().round(3) * 100 # simple bagging ensemble
+print(soft_majority_vote_hrp)
 
-returns = get_daily_returns(tickers, end_date + relativedelta(months=-60), end_date)
-
-cov, corr = returns.cov(), returns.corr(method='spearman') # non-linear correlation
-hrps.append(getHRP(cov, corr))
-
-cov = perturb_returns(returns) # to simulate a longer horizon i.e. events that didn't happen
-corr = cov2corr(cov)
-hrps.append(getHRP(cov, corr))
-
-print(pd.concat(hrps).groupby(level=0).mean().round(3) * 100)
+# backtest at 
+# https://www.portfoliovisualizer.com/backtest-portfolio?s=y&timePeriod=2&startYear=1985&firstMonth=1&endYear=2020&lastMonth=12&calendarAligned=true&includeYTD=false&initialAmount=10000&annualOperation=0&annualAdjustment=0&inflationAdjusted=true&annualPercentage=0.0&frequency=4&rebalanceType=4&absoluteDeviation=5.0&relativeDeviation=25.0&showYield=false&reinvestDividends=true&portfolioNames=false&portfolioName1=Portfolio+1&portfolioName2=Portfolio+2&portfolioName3=Portfolio+3&symbol1=BWX&allocation1_1=8&allocation1_2=9&symbol2=VWOB&allocation2_1=6&allocation2_2=5&symbol3=EDV&allocation3_1=5&allocation3_2=4&symbol4=TYD&allocation4_1=8&symbol5=VTIP&allocation5_1=28&allocation5_2=23&symbol6=BKLN&allocation6_1=6&allocation6_2=6&symbol7=PDBC&allocation7_1=6&allocation7_2=5&symbol8=SGOL&allocation8_1=9&allocation8_2=10&symbol9=VNQI&allocation9_1=4&allocation9_2=4&symbol10=VNQ&allocation10_1=6&allocation10_2=4&symbol11=PPEM&allocation11_1=5&symbol12=PPDM&allocation12_1=5&symbol13=PPLC&allocation13_1=4&symbol14=VWO&allocation14_2=4&symbol15=VEA&allocation15_2=4&symbol16=VOO&allocation16_2=4&symbol17=IEF&allocation17_2=18
