@@ -17,7 +17,7 @@ def kelly_max_leverage(returns):
     returns -= daily_risk_free_rate
     mean_daily_returns = returns.mean() * trading_days_per_year
     var = returns.var() * trading_days_per_year
-    return mean_daily_returns / var # ignores skewness and kurtosis
+    return np.round(mean_daily_returns / var, 1) # ignores skewness and kurtosis
 
 # https://epchan.blogspot.com/2014/08/kelly-vs-markowitz-portfolio.html?m=1
 def kelly_weight_optimization(returns, fraction=None, target_leverage=None):
@@ -28,8 +28,9 @@ def kelly_weight_optimization(returns, fraction=None, target_leverage=None):
     if fraction:
         F *= fraction
     if target_leverage:
-        F = [i / sum(np.absolute(F)) * target_leverage for i in F]
-    return { ticker : leverage for ticker, leverage in zip(returns.columns.values.tolist(), F)}
+        ones = np.ones(returns.shape[1]) / target_leverage
+        F = np.divide(F, ones.T.dot(F))
+    return { ticker : round(leverage * 100, 1) for ticker, leverage in zip(returns.columns.values.tolist(), F)}
 
 tickers = ['VTI','VXUS','BND','BNDX']
 
