@@ -21,14 +21,17 @@ from mlfinlab.portfolio_optimization.risk_estimators import RiskEstimators
 # https://blog.thinknewfound.com/2017/11/risk-parity-much-data-use-estimating-volatilities-correlations/
 def get_returns():
   short_term_log = get_volume_bar_returns(tickers, date.today() + relativedelta(days=-59), date.today(), log=True)
-  short_term_percent = get_volume_bar_returns(tickers, date.today() + relativedelta(days=-59), date.today(), log=False)
+  #short_term_percent = get_volume_bar_returns(tickers, date.today() + relativedelta(days=-59), date.today(), log=False)
   med_term_log = get_daily_returns(tickers, date.today() + relativedelta(months=-6), end_date, return_type='log')
-  med_term_percent = get_daily_returns(tickers, end_date + relativedelta(months=-6), end_date, return_type='percent')
+  #med_term_percent = get_daily_returns(tickers, end_date + relativedelta(months=-6), end_date, return_type='percent')
   long_term_frac = get_daily_returns(tickers, end_date + relativedelta(months=-24), end_date, return_type='fractional')
-  long_term_percent = get_daily_returns(tickers, end_date + relativedelta(months=-24), end_date, return_type='percent')
-  return [short_term_log, short_term_percent,
-          med_term_log, med_term_percent,
-          long_term_frac, long_term_percent
+  #long_term_percent = get_daily_returns(tickers, end_date + relativedelta(months=-24), end_date, return_type='percent')
+  return [short_term_log, 
+          #short_term_percent,
+          med_term_log, 
+          #med_term_percent,
+          long_term_frac, 
+          #long_term_percent
         ]
 
 def get_prices():
@@ -37,28 +40,43 @@ def get_prices():
   long_term = get_daily_prices(tickers, end_date + relativedelta(months=-24), end_date)
   return [short_term, med_term, long_term]
 
+def get_cov(returns, cov_type):
+  if cov_type == 'shrinkage':
+    cov = RiskEstimators.shrinked_covariance(returns, shrinkage_type='lw')
+  elif cov_type == 'exponential':
+    cov = RiskEstimators.exponential_covariance(returns)
+  else:
+    cov = RiskEstimators.corr_to_cov(returns.corr(method=cov_type), returns.std())
+  return RiskEstimators().denoise_covariance(cov, returns.shape[0] / returns.shape[1], .01)
+
 # https://mlfinlab.readthedocs.io/en/latest/portfolio_optimisation/hierarchical_risk_parity.html
-def hrp_model(returns, covariance, shocked, shrinkage):
-  cov = shock_cov_matrix(returns) if shocked else RiskEstimators.corr_to_cov(returns.corr(method=covariance), returns.std())
+def hrp_model(returns, cov_type):
+  cov = get_cov(returns, cov_type)
   hrp = HierarchicalRiskParity()
-  hrp.allocate(asset_names=returns.columns, covariance_matrix=cov, use_shrinkage=shrinkage)
+  hrp.allocate(asset_names=returns.columns, covariance_matrix=cov)
   return hrp.weights.transpose().sort_index()
 
 # https://mlfinlab.readthedocs.io/en/latest/portfolio_optimisation/hierarchical_clustering_asset_allocation.html
-def hcaa_model(returns, expected_return_type, linkage, metric, min_weight=0, max_weight=1):
+# can use min/max weight constraints to target vol
+def hcaa_model(returns, prices, expected_return_type, cov_type, linkage, metric, min_weight=.03, max_weight=.33):
   hcaa = HierarchicalClusteringAssetAllocation(calculate_expected_returns=expected_return_type)
-  hcaa.allocate(asset_returns=returns, linkage=linkage, allocation_metric=metric, min_weight=.05, max_weight=.2) # can use constraints to target vol
+  if prices is not None:
+    hcaa.allocate(asset_names=prices.columns, asset_prices=prices, linkage=linkage, allocation_metric=metric, min_weight=min_weight, max_weight=max_weight)
+  else:
+    cov = get_cov(returns, cov_type)
+    hcaa.allocate(asset_names=returns.columns, asset_returns=returns, covariance_matrix=cov, linkage=linkage, allocation_metric=metric, 
+                  min_weight=min_weight, max_weight=max_weight)
   return hcaa.weights.transpose().sort_index()
 
 if __name__ == '__main__':
 
-  tickers = ['PPLC','PPDM','PPEM','VNQ','VNQI','SGOL','PDBC','BKLN','VTIP','TYD','EDV','BWX','VWOB']
-  #tickers = ['VOO','VEA','VWO','VNQ','VNQI','SGOL','PDBC','BKLN','VTIP','IEF','EDV','BWX','VWOB']
+  #tickers = ['PPLC','PPDM','PPEM','VNQ','VNQI','SGOL','PDBC','BKLN','VTIP','TYD','EDV','BWX','VWOB']
+  tickers = ['VOO','VEA','VWO','VNQ','VNQI','SGOL','PDBC','BKLN','VTIP','IEF','EDV','BWX','VWOB']
   end_date = date.today()
 
   multi_returns = get_returns()
   multi_prices = get_prices()
-  covariances = ['pearson', distance_correlation, angular_distance, get_mutual_info]
+  cov_types = ['shrinkage', 'exponential', distance_correlation, angular_distance, get_mutual_info] # mutual info brings in information theory and entropy
   linkages = ['single', 'complete']
   metrics = ['minimum_variance', 'minimum_standard_deviation', 'equal_weighting', 'expected_shortfall']
   expected_return_types = ['mean', 'exponential']
@@ -67,19 +85,18 @@ if __name__ == '__main__':
   hrps = []
 
   for returns in multi_returns:
-    for covariance in covariances:
-      pool.apply_async(hrp_model, args=(returns, covariance, False, True), callback=lambda result: hrps.append(result))
-      pool.apply_async(hrp_model, args=(returns, covariance, True, False), callback=lambda result: hrps.append(result))
-    for linkage in linkages:
-      for metric in metrics:
-        for expected_return_type in expected_return_types:
-          pool.apply_async(hcaa_model, args=(returns, expected_return_type, linkage, metric, .05, .2), callback=lambda result: hrps.append(result))
+    for cov_type in cov_types:
+      pool.apply_async(hrp_model, args=(returns, cov_type), callback=lambda result: hrps.append(result))
+      for linkage in linkages:
+        for metric in metrics:
+          for expected_return_type in expected_return_types:
+            pool.apply_async(hcaa_model, args=(returns, None, expected_return_type, cov_type, linkage, metric), callback=lambda result: hrps.append(result))
 
   for prices in multi_prices:
     for linkage in linkages:
       for metric in metrics:
         for expected_return_type in expected_return_types:
-          pool.apply_async(hcaa_model, args=(returns, expected_return_type, linkage, 'sharpe_ratio'), callback=lambda result: hrps.append(result))
+          pool.apply_async(hcaa_model, args=(None, prices, expected_return_type, None, linkage, 'sharpe_ratio'), callback=lambda result: hrps.append(result))
 
   pool.close()
   pool.join()
@@ -88,4 +105,4 @@ if __name__ == '__main__':
   print(soft_majority_vote_hrp)
 
 # backtest at 
-# https://www.portfoliovisualizer.com/backtest-portfolio?s=y&timePeriod=2&startYear=1985&firstMonth=1&endYear=2020&lastMonth=12&calendarAligned=true&includeYTD=false&initialAmount=10000&annualOperation=0&annualAdjustment=0&inflationAdjusted=true&annualPercentage=0.0&frequency=4&rebalanceType=4&absoluteDeviation=5.0&relativeDeviation=25.0&showYield=false&reinvestDividends=true&portfolioNames=false&portfolioName1=Portfolio+1&portfolioName2=Portfolio+2&portfolioName3=Portfolio+3&symbol1=BWX&allocation1_1=8&allocation1_2=9&symbol2=VWOB&allocation2_1=6&allocation2_2=5&symbol3=EDV&allocation3_1=5&allocation3_2=4&symbol4=TYD&allocation4_1=8&symbol5=VTIP&allocation5_1=28&allocation5_2=23&symbol6=BKLN&allocation6_1=6&allocation6_2=6&symbol7=PDBC&allocation7_1=6&allocation7_2=5&symbol8=SGOL&allocation8_1=9&allocation8_2=10&symbol9=VNQI&allocation9_1=4&allocation9_2=4&symbol10=VNQ&allocation10_1=6&allocation10_2=4&symbol11=PPEM&allocation11_1=5&symbol12=PPDM&allocation12_1=5&symbol13=PPLC&allocation13_1=4&symbol14=VWO&allocation14_2=4&symbol15=VEA&allocation15_2=4&symbol16=VOO&allocation16_2=4&symbol17=IEF&allocation17_2=18
+# https://www.portfoliovisualizer.com/backtest-portfolio?s=y&timePeriod=2&startYear=1985&firstMonth=1&endYear=2020&lastMonth=12&calendarAligned=true&includeYTD=false&initialAmount=10000&annualOperation=0&annualAdjustment=0&inflationAdjusted=true&annualPercentage=0.0&frequency=4&rebalanceType=4&absoluteDeviation=5.0&relativeDeviation=25.0&showYield=false&reinvestDividends=true&portfolioNames=false&portfolioName1=Portfolio+1&portfolioName2=Portfolio+2&portfolioName3=Portfolio+3&symbol1=BWX&allocation1_2=9.4&allocation1_3=9.9&symbol2=VWOB&allocation2_2=4.9&allocation2_3=5.9&symbol3=EDV&allocation3_2=6.8&allocation3_3=6.9&symbol4=TYD&allocation4_3=7.6&symbol5=VTIP&allocation5_2=21.8&allocation5_3=24.9&symbol6=BKLN&allocation6_2=6.1&allocation6_3=6.6&symbol7=PDBC&allocation7_2=6.2&allocation7_3=7.7&symbol8=SGOL&allocation8_2=7.8&allocation8_3=9.5&symbol9=VNQI&allocation9_2=3.9&allocation9_3=4.2&symbol10=VNQ&allocation10_2=3.8&allocation10_3=4.2&symbol11=PPEM&allocation11_3=4.2&symbol12=PPDM&allocation12_3=4.6&symbol13=PPLC&allocation13_3=3.8&symbol14=VWO&allocation14_2=4.2&symbol15=VEA&allocation15_2=4&symbol16=VOO&allocation16_2=4.1&symbol17=IEF&allocation17_2=17

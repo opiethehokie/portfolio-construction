@@ -74,7 +74,7 @@ def shock_cov_matrix(returns, n=1):
   perturbed_cov = np.mean(np.array(perturbed_covs), axis=0)
   return pd.DataFrame(perturbed_cov, columns=returns.columns, index=returns.columns)
 
-#https://github.com/hudson-and-thames/mlfinlab/blob/master/mlfinlab/codependence/information.py
+# https://github.com/hudson-and-thames/mlfinlab/blob/master/mlfinlab/codependence/information.py
 def get_mutual_info(x, y):
   corr_coef = np.corrcoef(x, y)[0][1]
   n_bins = get_optimal_number_of_bins(x.shape[0], corr_coef=corr_coef)
