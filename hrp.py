@@ -47,7 +47,7 @@ def get_cov(returns, cov_type):
     cov = RiskEstimators.exponential_covariance(returns)
   else:
     cov = RiskEstimators.corr_to_cov(returns.corr(method=cov_type), returns.std())
-  return RiskEstimators().denoise_covariance(cov, returns.shape[0] / returns.shape[1], .01)
+  return RiskEstimators().denoise_covariance(cov, returns.shape[0] / returns.shape[1], detone=False)
 
 # https://mlfinlab.readthedocs.io/en/latest/portfolio_optimisation/hierarchical_risk_parity.html
 def hrp_model(returns, cov_type):
@@ -70,15 +70,15 @@ def hcaa_model(returns, prices, expected_return_type, cov_type, linkage, metric,
 
 if __name__ == '__main__':
 
-  #tickers = ['PPLC','PPDM','PPEM','VNQ','VNQI','SGOL','PDBC','BKLN','VTIP','TYD','EDV','BWX','VWOB']
-  tickers = ['VOO','VEA','VWO','VNQ','VNQI','SGOL','PDBC','BKLN','VTIP','IEF','EDV','BWX','VWOB']
+  tickers = ['PPLC','PPDM','PPEM','VNQ','VNQI','SGOL','PDBC','BKLN','VTIP','TYD','EDV','VWOB','LEMB']
+  #tickers = ['VOO','VEA','VWO','VNQ','VNQI','SGOL','PDBC','BKLN','VTIP','IEF','EDV','VWOB','LEMB']
   end_date = date.today()
 
   multi_returns = get_returns()
   multi_prices = get_prices()
   cov_types = ['shrinkage', 'exponential', distance_correlation, angular_distance, get_mutual_info] # mutual info brings in information theory and entropy
-  linkages = ['single', 'complete']
-  metrics = ['minimum_variance', 'minimum_standard_deviation', 'equal_weighting', 'expected_shortfall']
+  linkages = ['single', 'complete', 'ward']
+  metrics = ['minimum_variance', 'equal_weighting', 'expected_shortfall']
   expected_return_types = ['mean', 'exponential']
 
   pool = mp.Pool(4)
@@ -86,7 +86,7 @@ if __name__ == '__main__':
 
   for returns in multi_returns:
     for cov_type in cov_types:
-      pool.apply_async(hrp_model, args=(returns, cov_type), callback=lambda result: hrps.append(result))
+      pool.apply_async(hrp_model, args=(returns, cov_type), callback=lambda result: hrps.append(result)) # inverse variance
       for linkage in linkages:
         for metric in metrics:
           for expected_return_type in expected_return_types:

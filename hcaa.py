@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from sklearn.cluster import AgglomerativeClustering
 from sklearn.metrics.pairwise import pairwise_distances
-from mlfinlab.portfolio_optimization.returns_estimators import ReturnsEstimation
+from mlfinlab.portfolio_optimization.returns_estimators import ReturnsEstimators
 from mlfinlab.portfolio_optimization.risk_metrics import RiskMetrics
 
 
@@ -30,7 +30,7 @@ class HierarchicalClusteringAssetAllocation:
         self.weights = list()
         self.clusters = None
         self.ordered_indices = None
-        self.returns_estimator = ReturnsEstimation()
+        self.returns_estimator = ReturnsEstimators()
         self.risk_metrics = RiskMetrics()
         self.calculate_expected_returns = calculate_expected_returns
 
