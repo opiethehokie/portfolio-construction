@@ -1,5 +1,6 @@
 import math
 import multiprocessing as mp
+import random
 import warnings
 
 from datetime import date, timedelta
@@ -47,7 +48,8 @@ def get_cov(returns, cov_type):
     cov = RiskEstimators.exponential_covariance(returns)
   else:
     cov = RiskEstimators.corr_to_cov(returns.corr(method=cov_type), returns.std())
-  return RiskEstimators().denoise_covariance(cov, returns.shape[0] / returns.shape[1], detone=False)
+  detone = random.choice([True, False]) and cov_type != angular_distance
+  return RiskEstimators().denoise_covariance(cov, returns.shape[0] / returns.shape[1], detone=detone)
 
 # https://mlfinlab.readthedocs.io/en/latest/portfolio_optimisation/hierarchical_risk_parity.html
 def hrp_model(returns, cov_type):
@@ -70,8 +72,7 @@ def hcaa_model(returns, prices, expected_return_type, cov_type, linkage, metric,
 
 if __name__ == '__main__':
 
-  tickers = ['PPLC','PPDM','PPEM','VNQ','VNQI','SGOL','PDBC','BKLN','VTIP','TYD','EDV','VWOB','LEMB']
-  #tickers = ['VOO','VEA','VWO','VNQ','VNQI','SGOL','PDBC','BKLN','VTIP','IEF','EDV','VWOB','LEMB']
+  tickers = ['PPLC','PPDM','PPEM','VNQ','VNQI','SGOL','PDBC','BKLN','VTIP','TYD','VWOB','LEMB','FMF']
   end_date = date.today()
 
   multi_returns = get_returns()
