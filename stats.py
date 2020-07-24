@@ -8,8 +8,8 @@ from lib import get_daily_returns
 
 
 trading_days_per_year = 251
-tickers = ['BKLN','BWX','EDV','PDBC','PPDM','PPEM','PPLC','SGOL','TYD','VNQ','VNQI','VTIP','VWOB']
-weights = np.array([.07, .10, .05, .05, .07, .09, .05, .09, .08, .04, .05, .22, .04])
+tickers = ['BKLN','FMF','LEMB','PDBC','PPDM','PPEM','PPLC','SGOL','TYD','VNQ','VNQI','VTIP','VWOB']
+weights = np.array([.07, .11, .06, .06, .07, .05, .04, .10, .08, .04, .04, .24, .04])
 
 assert len(tickers) == len(weights)
 assert sum(weights) == 1
@@ -25,7 +25,7 @@ weighted_daily_var = weights.T @ daily_returns.cov() @ weights
 
 individual_vol = np.sqrt(trading_days_per_year * daily_returns.var()) * 100
 portfolio_vol = np.sqrt(trading_days_per_year * weighted_daily_var) * 100
-independent_bets = np.divide(weights.T @ daily_returns.std(), np.sqrt(weighted_daily_var))
+independent_bets = np.divide(weights.T @ daily_returns.std(), np.sqrt(weighted_daily_var))**2
 portfolio_skew = stats.skew(weighted_daily_portfolio_returns) / np.sqrt(12)
 portfolio_kurtosis = stats.kurtosis(weighted_daily_portfolio_returns) / 12
 
