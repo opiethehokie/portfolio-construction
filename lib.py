@@ -35,9 +35,9 @@ def get_daily_returns(tickers, start, end, return_type='percent'):
   close = get_daily_prices(tickers, start, end)
   if return_type == 'fractional':
     close = pd.DataFrame(np.log(close)).diff().dropna()
+    returns = frac_diff(close, .1) # https://mlfinlab.readthedocs.io/en/latest/implementations/frac_diff.html
     # want diff where ADF critical vals < -2.83 for 95% confidence
     #print(returns.dropna().apply(adfuller, maxlag=1, regression='c', autolag=None))
-    returns = frac_diff(close, .1) # https://mlfinlab.readthedocs.io/en/latest/implementations/frac_diff.html
   elif return_type == 'log':
     returns = pd.DataFrame(np.log(close)).diff() # https://mathbabe.org/2011/08/30/why-log-returns/
   else:
