@@ -54,7 +54,7 @@ def get_volume_bar_returns(tickers, start, end, log=False):
   market_proxy_data.columns = ['date', 'price', 'volume']
   avg_market_proxy_daily_volume = market_proxy_data['volume'].sum() / 59
   market_proxy_bars = standard_data_structures.get_volume_bars(market_proxy_data, threshold=avg_market_proxy_daily_volume, verbose=False)
-  data = pdr.get_data_yahoo(tickers, start=start, end=end, session=session, interval='5m', auto_adjust=True).fillna(method='ffill')
+  data = pdr.get_data_yahoo(tickers, start=start, end=end, session=session, interval='5m', auto_adjust=True).fillna(method='ffill').fillna(method='bfill')
   # sample tickers using SPY's volume bar date times
   bars = data[data.index.isin(market_proxy_bars['date_time'])]
   returns = pd.DataFrame(np.log(bars['Close'])).diff() if log else bars['Close'].pct_change(1)

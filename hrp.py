@@ -22,8 +22,8 @@ from mlfinlab.portfolio_optimization.risk_estimators import RiskEstimators
 # https://blog.thinknewfound.com/2017/11/risk-parity-much-data-use-estimating-volatilities-correlations/
 def get_returns():
   short_term_log = get_volume_bar_returns(tickers, date.today() + relativedelta(days=-59), date.today(), log=True)
-  med_term_frac = get_daily_returns(tickers, date.today() + relativedelta(months=-12), end_date, return_type='fractional')
-  long_term_frac = get_daily_returns(tickers, end_date + relativedelta(months=-28), end_date, return_type='fractional')
+  med_term_frac = get_daily_returns(tickers, date.today() + relativedelta(months=-24), end_date, return_type='fractional')
+  long_term_frac = get_daily_returns(tickers, end_date + relativedelta(months=-60), end_date, return_type='fractional')
   return [short_term_log, med_term_frac, long_term_frac]
 
 # https://hudsonthames.org/portfolio-optimisation-with-mlfinlab-estimation-of-risk/
@@ -55,7 +55,7 @@ def herc_model(returns, cov, linkage, metric):
 
 if __name__ == '__main__':
 
-  tickers = ['PPLC','PPDM','PPEM','VNQ','VNQI','SGOL','PDBC','BKLN','TIPZ','TYD','VWO','LEMB','FMF'] # TIPZ's vol constrains actual VTIP/TYD
+  tickers = ['VTI','VEA','VWO','VNQ','VNQI','SGOL','PDBC','BKLN','SCHP','TYD','LEMB','FMF']
   end_date = date.today()
 
   multi_returns = get_returns()
