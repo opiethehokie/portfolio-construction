@@ -9,12 +9,13 @@ from dateutil.relativedelta import relativedelta
 import numpy as np
 import pandas as pd
 
-from lib import get_daily_returns, get_volume_bar_returns
+from lib import get_daily_returns, get_volume_bar_returns, bootstrap_returns
 from lib import get_mutual_info # to remove extra parameters
 from mlfinlab.codependence.correlation import distance_correlation, angular_distance
 from mlfinlab.portfolio_optimization.hrp import HierarchicalRiskParity 
 from mlfinlab.portfolio_optimization.herc import HierarchicalEqualRiskContribution
 from mlfinlab.portfolio_optimization.risk_estimators import RiskEstimators
+from mlfinlab.portfolio_optimization.tic import TIC
 
 # graph theory (tree instead of complete correlation graph) and machine learning (clustering) based optimization
 # instability, concentration, and underperformance improvement on convex optimization (quadratic programming)
@@ -23,11 +24,11 @@ from mlfinlab.portfolio_optimization.risk_estimators import RiskEstimators
 def get_returns():
   short_term_log = get_volume_bar_returns(tickers, date.today() + relativedelta(days=-59), date.today(), log=True)
   med_term_frac = get_daily_returns(tickers, date.today() + relativedelta(months=-24), end_date, return_type='fractional')
-  long_term_frac = get_daily_returns(tickers, end_date + relativedelta(months=-60), end_date, return_type='fractional')
-  return [short_term_log, med_term_frac, long_term_frac]
+  long_term_bootstrap = bootstrap_returns(get_daily_returns(tickers, end_date + relativedelta(months=-60), end_date, return_type='fractional'), method='block')
+  return [short_term_log, med_term_frac, long_term_bootstrap]
 
 # https://hudsonthames.org/portfolio-optimisation-with-mlfinlab-estimation-of-risk/
-def get_covariances(data, price_data=False):
+def get_covariances(data, econ_tree, price_data=False):
   covs = []
   covs.append(RiskEstimators().minimum_covariance_determinant(data, price_data=price_data))
   covs.append(RiskEstimators().empirical_covariance(data, price_data=price_data))
@@ -39,13 +40,9 @@ def get_covariances(data, price_data=False):
   covs.append(RiskEstimators.corr_to_cov(data.corr(method=get_mutual_info), data.std()))
   covs.append(RiskEstimators().denoise_covariance(data.cov(), data.shape[0] / data.shape[1], denoise_method='target_shrink'))
   covs.append(RiskEstimators().denoise_covariance(data.cov(), data.shape[0] / data.shape[1], denoise_method='const_resid_eigen', detone=True))
+  # https://mlfinlab.readthedocs.io/en/latest/portfolio_optimisation/theory_implied_correlation.html
+  covs.append(TIC().tic_correlation(econ_tree, data.corr(), data.shape[0] / data.shape[1]))
   return covs
-
-# https://mlfinlab.readthedocs.io/en/latest/portfolio_optimisation/hierarchical_risk_parity.html
-def hrp_model(returns, cov, linkage):
-  hrp = HierarchicalRiskParity()
-  hrp.allocate(asset_names=returns.columns, covariance_matrix=cov, linkage=linkage)
-  return hrp.weights.transpose().sort_index()
 
 # https://mlfinlab.readthedocs.io/en/latest/portfolio_optimisation/hierarchical_equal_risk_contribution.html
 def herc_model(returns, cov, linkage, metric):
@@ -56,21 +53,36 @@ def herc_model(returns, cov, linkage, metric):
 if __name__ == '__main__':
 
   tickers = ['VTI','VEA','VWO','VNQ','VNQI','SGOL','PDBC','BKLN','SCHP','TYD','LEMB','FMF']
+
+  econ_tree = pd.DataFrame(np.array([
+    ['VTI', 101010, 1010, 10],
+    ['VEA', 102010, 1020, 10],
+    ['VWO', 103010, 1030, 10],
+    ['VNQ', 101020, 1010, 10],
+    ['VNQI', 102020, 1020, 10],
+    ['SGOL', 304030, 3040, 30],
+    ['PDBC', 304030, 3040, 30],
+    ['BKLN', 201040, 2040, 20],
+    ['SCHP', 201050, 2010, 20],
+    ['TYD', 201010, 2010, 20],
+    ['LEMB', 203010, 2030, 20],
+    ['FMF', 404010, 4040, 40]
+  ]), columns=['TICKER', 'SECTOR', 'REGION', 'TYPE'])
+
   end_date = date.today()
 
   multi_returns = get_returns()
   
   linkages = ['single', 'complete', 'ward']
-  metrics = ['equal_weighting', 'expected_shortfall', 'conditional_drawdown_risk']
+  metrics = ['variance', 'standard_deviation', 'equal_weighting', 'expected_shortfall', 'conditional_drawdown_risk'] # variance is original HRP
 
   pool = mp.Pool(4)
   allocations = []
 
   for returns in multi_returns:
-    covs = get_covariances(returns)
+    covs = get_covariances(returns, econ_tree)
     for cov in covs:
       for linkage in linkages:
-        pool.apply_async(hrp_model, args=(returns, cov, linkage), callback=lambda result: allocations.append(result)) # variance-based metric
         for metric in metrics:
           pool.apply_async(herc_model, args=(returns, cov, linkage, metric), callback=lambda result: allocations.append(result))
 

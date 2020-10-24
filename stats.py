@@ -8,8 +8,8 @@ from lib import get_daily_returns
 
 
 trading_days_per_year = 251
-tickers = ['BKLN','FMF','LEMB','PDBC','PPDM','PPEM','PPLC','SGOL','TYD','VNQ','VNQI','VTIP','VWOB']
-weights = np.array([.07, .11, .06, .06, .07, .05, .04, .10, .08, .04, .04, .24, .04])
+tickers = ['VTI','VEA','VWO','VNQ','VNQI','SGOL','PDBC','BKLN','SCHP','TYD','LEMB','FMF']
+weights = np.array([.033, .045, .026, .025, .031, .075, .049, .082, .272, .117, .072, .173])
 
 assert len(tickers) == len(weights)
 assert sum(weights) == 1

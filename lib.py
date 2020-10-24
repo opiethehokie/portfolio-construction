@@ -20,6 +20,7 @@ from mlfinlab.codependence.information import get_optimal_number_of_bins
 warnings.simplefilter(action='ignore', category=FutureWarning)
 from pandas_datareader import data as pdr
 from sklearn.metrics import mutual_info_score
+from sklearn.utils import resample
 from statsmodels.tsa.stattools import adfuller
 
 yf.pdr_override()
@@ -73,6 +74,14 @@ def shock_cov_matrix(returns, n=1):
     perturbed_covs.append(np.linalg.multi_dot([eig_vecs, np.diag(eig_vals), eig_vecs.T]))
   perturbed_cov = np.mean(np.array(perturbed_covs), axis=0)
   return pd.DataFrame(perturbed_cov, columns=returns.columns, index=returns.columns)
+
+def bootstrap_returns(returns, method='row'):
+  if method == 'row':
+    return resample(returns, random_state=42)
+  elif method == 'block':
+    return resample(returns, random_state=42, stratify=returns)
+  else:
+    return returns
 
 # https://github.com/hudson-and-thames/mlfinlab/blob/master/mlfinlab/codependence/information.py
 def get_mutual_info(x, y):
