@@ -9,7 +9,7 @@ from dateutil.relativedelta import relativedelta
 import numpy as np
 import pandas as pd
 
-from lib import get_daily_returns, get_volume_bar_returns, bootstrap_returns
+from lib import get_time_interval_returns, get_volume_bar_returns, bootstrap_returns
 from lib import get_mutual_info # to remove extra parameters
 from mlfinlab.codependence.correlation import distance_correlation, angular_distance
 from mlfinlab.portfolio_optimization.hrp import HierarchicalRiskParity 
@@ -22,10 +22,10 @@ from mlfinlab.portfolio_optimization.tic import TIC
 
 # https://blog.thinknewfound.com/2017/11/risk-parity-much-data-use-estimating-volatilities-correlations/
 def get_returns():
-  short_term_log = get_volume_bar_returns(tickers, date.today() + relativedelta(days=-59), date.today(), log=True)
-  med_term_frac = get_daily_returns(tickers, date.today() + relativedelta(months=-24), end_date, return_type='fractional')
-  long_term_bootstrap = bootstrap_returns(get_daily_returns(tickers, end_date + relativedelta(months=-60), end_date, return_type='fractional'), method='block')
-  return [short_term_log, med_term_frac, long_term_bootstrap]
+  short_term_log = get_volume_bar_returns(tickers, date.today() + relativedelta(days=-59), date.today())
+  med_term_frac = get_time_interval_returns(tickers, date.today() + relativedelta(months=-30), end_date, return_type='fractional', interval='1d')
+  long_term_monthly = get_time_interval_returns(tickers, end_date + relativedelta(months=-62), end_date, interval='1mo')
+  return [short_term_log, med_term_frac, long_term_monthly]
 
 # https://hudsonthames.org/portfolio-optimisation-with-mlfinlab-estimation-of-risk/
 def get_covariances(data, econ_tree, price_data=False):
@@ -80,6 +80,7 @@ if __name__ == '__main__':
   allocations = []
 
   for returns in multi_returns:
+    returns = bootstrap_returns(returns, method='block')
     covs = get_covariances(returns, econ_tree)
     for cov in covs:
       for linkage in linkages:

@@ -4,17 +4,17 @@ import scipy.stats as stats
 from datetime import date
 from dateutil.relativedelta import relativedelta
 
-from lib import get_daily_returns
+from lib import get_time_interval_returns
 
 
 trading_days_per_year = 251
-tickers = ['VTI','VEA','VWO','VNQ','VNQI','SGOL','PDBC','BKLN','SCHP','TYD','LEMB','FMF']
-weights = np.array([.033, .045, .026, .025, .031, .075, .049, .082, .272, .117, .072, .173])
+tickers = ['BKLN','FMF','LEMB','PDBC','SCHP','SGOL','TYD','VEA','VNQ','VNQI','VTI','VWO']
+weights = np.array([.119,.224,.067,.055,.217,.087,.072,.034,.031,.03,.034,.03])
 
 assert len(tickers) == len(weights)
 assert sum(weights) == 1
 
-daily_returns = get_daily_returns(tickers, date.today() + relativedelta(months=-24), date.today())
+daily_returns = get_time_interval_returns(tickers, date.today() + relativedelta(months=-24), date.today())
 
 # https://investresolve.com/blog/tag/independent-bets/
 # https://thequantmba.wordpress.com/2017/06/06/max-diversification-in-python/

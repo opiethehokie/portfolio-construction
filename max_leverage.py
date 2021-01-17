@@ -5,10 +5,10 @@ import numpy as np
 from datetime import date
 from dateutil.relativedelta import relativedelta
 
-from lib import get_daily_returns
+from lib import get_time_interval_returns
 
 trading_days_per_year = 252
-daily_risk_free_rate = .0011 / trading_days_per_year # daily 3-month treasury rate
+daily_risk_free_rate = (.0009 * 4) / trading_days_per_year # daily 3-month treasury rate
 
 # http://ddnum.com/articles/leveragedETFs.php
 # https://rhsfinancial.com/2017/06/20/line-aggressive-crazy-leverage/
@@ -35,14 +35,14 @@ def kelly_weight_optimization(returns, fraction=None, target_leverage=None):
 tickers = ['VTI','VXUS','BND','BNDX']
 
 # constant - should still rebalance at least quarterly -> monthly
-returns = get_daily_returns(tickers, date.today() + relativedelta(months=-60), date.today())
+returns = get_time_interval_returns(tickers, date.today() + relativedelta(months=-60), date.today())
 print(kelly_max_leverage(returns))
 
 weights = kelly_weight_optimization(returns, fraction=.5)
 pprint.pprint(weights)
 
 # dynamic based on volatility
-returns = get_daily_returns(tickers, date.today() + relativedelta(days=-60), date.today())
+returns = get_time_interval_returns(tickers, date.today() + relativedelta(days=-60), date.today())
 print(kelly_max_leverage(returns))
 
 weights = kelly_weight_optimization(returns, target_leverage=1)

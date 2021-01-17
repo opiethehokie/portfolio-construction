@@ -25,15 +25,11 @@ from statsmodels.tsa.stattools import adfuller
 
 yf.pdr_override()
 
-def get_daily_prices(tickers, start, end):
+def get_time_interval_returns(tickers, start, end, return_type='percent', interval='1d'):
   session = requests_cache.CachedSession(backend='sqlite', expire_after=timedelta(days=1))
-  data = pdr.get_data_yahoo(tickers, start=start, end=end, session=session, auto_adjust=True)
-  close = data['Close']
+  data = pdr.get_data_yahoo(tickers, start=start, end=end, session=session, auto_adjust=True, interval=interval)
+  close = data['Close'].dropna()
   close.index = pd.to_datetime(close.index)
-  return close.fillna(method='ffill')
-
-def get_daily_returns(tickers, start, end, return_type='percent'):
-  close = get_daily_prices(tickers, start, end)
   if return_type == 'fractional':
     close = pd.DataFrame(np.log(close)).diff().dropna()
     returns = frac_diff(close, .1) # https://mlfinlab.readthedocs.io/en/latest/implementations/frac_diff.html
@@ -46,7 +42,7 @@ def get_daily_returns(tickers, start, end, return_type='percent'):
   return returns.dropna()
 
 # https://mlfinlab.readthedocs.io/en/latest/implementations/data_structures.html#volume-bars
-def get_volume_bar_returns(tickers, start, end, log=False):
+def get_volume_bar_returns(tickers, start, end, log=True):
   session = requests_cache.CachedSession(backend='sqlite', expire_after=timedelta(days=1))
   # use S&P 500 as a volume proxy instead of tring to combine basket of volume bars
   market_proxy_data = pdr.get_data_yahoo('SPY', start=start, end=end, session=session, interval='5m', auto_adjust=True)
