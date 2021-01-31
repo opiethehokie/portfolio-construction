@@ -16,7 +16,10 @@ from mlfinlab.data_structures import standard_data_structures
 sys.stdout = sys.__stdout__
 
 from mlfinlab.features.fracdiff import frac_diff
+from mlfinlab.codependence.correlation import distance_correlation, angular_distance
 from mlfinlab.codependence.information import get_optimal_number_of_bins
+from mlfinlab.portfolio_optimization.risk_estimators import RiskEstimators
+from mlfinlab.portfolio_optimization.tic import TIC
 warnings.simplefilter(action='ignore', category=FutureWarning)
 from pandas_datareader import data as pdr
 from sklearn.metrics import mutual_info_score
@@ -70,6 +73,24 @@ def shock_cov_matrix(returns, n=1):
     perturbed_covs.append(np.linalg.multi_dot([eig_vecs, np.diag(eig_vals), eig_vecs.T]))
   perturbed_cov = np.mean(np.array(perturbed_covs), axis=0)
   return pd.DataFrame(perturbed_cov, columns=returns.columns, index=returns.columns)
+
+# https://hudsonthames.org/portfolio-optimisation-with-mlfinlab-estimation-of-risk/
+def robust_covariances(returns, econ_tree=None):
+  covs = []
+  covs.append(RiskEstimators().minimum_covariance_determinant(returns, price_data=False))
+  covs.append(RiskEstimators().empirical_covariance(returns, price_data=False))
+  covs.append(RiskEstimators().shrinked_covariance(returns, price_data=False, shrinkage_type='lw'))
+  covs.append(RiskEstimators().semi_covariance(returns, price_data=False))
+  covs.append(RiskEstimators().exponential_covariance(returns, price_data=False))
+  covs.append(RiskEstimators.corr_to_cov(returns.corr(method=distance_correlation), returns.std()))
+  covs.append(RiskEstimators.corr_to_cov(returns.corr(method=angular_distance), returns.std()))
+  covs.append(RiskEstimators.corr_to_cov(returns.corr(method=get_mutual_info), returns.std()))
+  covs.append(RiskEstimators().denoise_covariance(returns.cov(), returns.shape[0] / returns.shape[1], denoise_method='target_shrink'))
+  #covs.append(RiskEstimators().denoise_covariance(returns.cov(), returns.shape[0] / returns.shape[1], denoise_method='const_resid_eigen', detone=True))
+  # https://mlfinlab.readthedocs.io/en/latest/portfolio_optimisation/theory_implied_correlation.html
+  if econ_tree is not None:
+    covs.append(TIC().tic_correlation(econ_tree, returns.corr(), returns.shape[0] / returns.shape[1]))
+  return covs
 
 def bootstrap_returns(returns, method='row'):
   if method == 'row':

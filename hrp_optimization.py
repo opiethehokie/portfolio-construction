@@ -9,40 +9,20 @@ from dateutil.relativedelta import relativedelta
 import numpy as np
 import pandas as pd
 
-from lib import get_time_interval_returns, get_volume_bar_returns, bootstrap_returns
+from lib import get_time_interval_returns, get_volume_bar_returns, bootstrap_returns, robust_covariances
 from lib import get_mutual_info # to remove extra parameters
-from mlfinlab.codependence.correlation import distance_correlation, angular_distance
 from mlfinlab.portfolio_optimization.hrp import HierarchicalRiskParity 
 from mlfinlab.portfolio_optimization.herc import HierarchicalEqualRiskContribution
-from mlfinlab.portfolio_optimization.risk_estimators import RiskEstimators
-from mlfinlab.portfolio_optimization.tic import TIC
 
 # graph theory (tree instead of complete correlation graph) and machine learning (clustering) based optimization
 # instability, concentration, and underperformance improvement on convex optimization (quadratic programming)
 
-# https://blog.thinknewfound.com/2017/11/risk-parity-much-data-use-estimating-volatilities-correlations/
-def get_returns():
+def get_returns(end_date=date.today()):
   short_term_log = get_volume_bar_returns(tickers, date.today() + relativedelta(days=-59), date.today())
   med_term_frac = get_time_interval_returns(tickers, date.today() + relativedelta(months=-30), end_date, return_type='fractional', interval='1d')
   long_term_monthly = get_time_interval_returns(tickers, end_date + relativedelta(months=-62), end_date, interval='1mo')
   return [short_term_log, med_term_frac, long_term_monthly]
 
-# https://hudsonthames.org/portfolio-optimisation-with-mlfinlab-estimation-of-risk/
-def get_covariances(data, econ_tree, price_data=False):
-  covs = []
-  covs.append(RiskEstimators().minimum_covariance_determinant(data, price_data=price_data))
-  covs.append(RiskEstimators().empirical_covariance(data, price_data=price_data))
-  covs.append(RiskEstimators().shrinked_covariance(data, price_data=price_data, shrinkage_type='lw'))
-  covs.append(RiskEstimators().semi_covariance(data, price_data=price_data))
-  covs.append(RiskEstimators().exponential_covariance(data, price_data=price_data))
-  covs.append(RiskEstimators.corr_to_cov(data.corr(method=distance_correlation), data.std()))
-  covs.append(RiskEstimators.corr_to_cov(data.corr(method=angular_distance), data.std()))
-  covs.append(RiskEstimators.corr_to_cov(data.corr(method=get_mutual_info), data.std()))
-  covs.append(RiskEstimators().denoise_covariance(data.cov(), data.shape[0] / data.shape[1], denoise_method='target_shrink'))
-  covs.append(RiskEstimators().denoise_covariance(data.cov(), data.shape[0] / data.shape[1], denoise_method='const_resid_eigen', detone=True))
-  # https://mlfinlab.readthedocs.io/en/latest/portfolio_optimisation/theory_implied_correlation.html
-  covs.append(TIC().tic_correlation(econ_tree, data.corr(), data.shape[0] / data.shape[1]))
-  return covs
 
 # https://mlfinlab.readthedocs.io/en/latest/portfolio_optimisation/hierarchical_equal_risk_contribution.html
 def herc_model(returns, cov, linkage, metric):
@@ -69,19 +49,15 @@ if __name__ == '__main__':
     ['FMF', 404010, 4040, 40]
   ]), columns=['TICKER', 'SECTOR', 'REGION', 'TYPE'])
 
-  end_date = date.today()
-
   multi_returns = get_returns()
-  
   linkages = ['single', 'complete', 'ward']
   metrics = ['variance', 'standard_deviation', 'equal_weighting', 'expected_shortfall', 'conditional_drawdown_risk'] # variance is original HRP
-
   pool = mp.Pool(4)
   allocations = []
 
   for returns in multi_returns:
     returns = bootstrap_returns(returns, method='block')
-    covs = get_covariances(returns, econ_tree)
+    covs = robust_covariances(returns, econ_tree)
     for cov in covs:
       for linkage in linkages:
         for metric in metrics:
