@@ -86,7 +86,7 @@ def robust_covariances(returns, econ_tree=None):
   covs.append(RiskEstimators.corr_to_cov(returns.corr(method=angular_distance), returns.std()))
   covs.append(RiskEstimators.corr_to_cov(returns.corr(method=get_mutual_info), returns.std()))
   covs.append(RiskEstimators().denoise_covariance(returns.cov(), returns.shape[0] / returns.shape[1], denoise_method='target_shrink'))
-  #covs.append(RiskEstimators().denoise_covariance(returns.cov(), returns.shape[0] / returns.shape[1], denoise_method='const_resid_eigen', detone=True))
+  covs.append(RiskEstimators().denoise_covariance(returns.cov(), returns.shape[0] / returns.shape[1], denoise_method='const_resid_eigen', detone=True))
   # https://mlfinlab.readthedocs.io/en/latest/portfolio_optimisation/theory_implied_correlation.html
   if econ_tree is not None:
     covs.append(TIC().tic_correlation(econ_tree, returns.corr(), returns.shape[0] / returns.shape[1]))
