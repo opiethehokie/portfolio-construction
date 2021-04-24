@@ -110,3 +110,19 @@ def get_mutual_info(x, y):
   marginal_y = ss.entropy(np.histogram(y, n_bins)[0])
   mutual_info /= min(marginal_x, marginal_y)
   return mutual_info
+
+# https://investresolve.com/blog/tag/independent-bets/
+# https://thequantmba.wordpress.com/2017/06/06/max-diversification-in-python/
+def print_stats(returns, weights, trading_periods):
+  #assert sum(weights) == 1
+  weighted_returns = returns * weights
+  weighted_portfolio_returns = np.sum(weighted_returns, axis=1)
+  weighted_var = weights.T @ returns.cov() @ weights
+  portfolio_vol = np.sqrt(trading_periods * weighted_var) * 100
+  independent_bets = np.divide(weights.T @ returns.std(), np.sqrt(weighted_var))**2
+  portfolio_skew = ss.skew(weighted_portfolio_returns) / np.sqrt(12)
+  portfolio_kurtosis = ss.kurtosis(weighted_portfolio_returns) / 12
+  print('total annual vol: %.2f%%' % portfolio_vol)
+  print('independent bets: %.2f' % independent_bets)
+  print('monthly skew: %.2f (positive good)' % portfolio_skew)
+  print('monthly kurtosis: %.2f (fat tails above 0)' % portfolio_kurtosis)

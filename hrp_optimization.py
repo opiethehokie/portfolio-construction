@@ -9,7 +9,7 @@ from dateutil.relativedelta import relativedelta
 import numpy as np
 import pandas as pd
 
-from lib import get_time_interval_returns, get_volume_bar_returns, bootstrap_returns, robust_covariances
+from lib import get_time_interval_returns, get_volume_bar_returns, bootstrap_returns, robust_covariances, print_stats
 from lib import get_mutual_info # to remove extra parameters
 from mlfinlab.portfolio_optimization.hrp import HierarchicalRiskParity 
 from mlfinlab.portfolio_optimization.herc import HierarchicalEqualRiskContribution
@@ -32,22 +32,7 @@ def herc_model(returns, cov, linkage, metric):
 
 if __name__ == '__main__':
 
-  tickers = ['VTI','VEA','VWO','VNQ','VNQI','SGOL','PDBC','BKLN','SCHP','TYD','LEMB','FMF']
-
-  econ_tree = pd.DataFrame(np.array([
-    ['VTI', 101010, 1010, 10],
-    ['VEA', 102010, 1020, 10],
-    ['VWO', 103010, 1030, 10],
-    ['VNQ', 101020, 1010, 10],
-    ['VNQI', 102020, 1020, 10],
-    ['SGOL', 304030, 3040, 30],
-    ['PDBC', 304030, 3040, 30],
-    ['BKLN', 201040, 2040, 20],
-    ['SCHP', 201050, 2010, 20],
-    ['TYD', 201010, 2010, 20],
-    ['LEMB', 203010, 2030, 20],
-    ['FMF', 404010, 4040, 40]
-  ]), columns=['TICKER', 'SECTOR', 'REGION', 'TYPE'])
+  tickers = ['VTI','VEA','VWO','VNQ','VNQI','SGOL','PDBC','HYG','SCHP','TYD','BTAL','LEMB','FMF']
 
   multi_returns = get_returns()
   linkages = ['single', 'complete', 'ward']
@@ -57,7 +42,7 @@ if __name__ == '__main__':
 
   for returns in multi_returns:
     returns = bootstrap_returns(returns, method='block')
-    covs = robust_covariances(returns, econ_tree)
+    covs = robust_covariances(returns)
     for cov in covs:
       for linkage in linkages:
         for metric in metrics:
@@ -68,5 +53,10 @@ if __name__ == '__main__':
 
   soft_majority_vote = pd.concat(allocations).groupby(level=0).mean().round(3) * 100 # simple bagging ensemble
   print(soft_majority_vote)
+
+  returns = get_time_interval_returns(tickers, date.today() + relativedelta(years=-5), date.today(), return_type='log')
+  #print(returns.corr())
+  weights = soft_majority_vote[0].values / 100
+  print_stats(returns, weights, 250)
 
 # backtest at https://www.portfoliovisualizer.com/backtest-portfolio?s=y&timePeriod=2&startYear=1985&firstMonth=1&endYear=2020&lastMonth=12&calendarAligned=true&includeYTD=false&initialAmount=10000&annualOperation=0&annualAdjustment=0&inflationAdjusted=true&annualPercentage=0.0&frequency=4&rebalanceType=4&absoluteDeviation=5.0&relativeDeviation=25.0&showYield=false&reinvestDividends=true&portfolioNames=false&portfolioName1=Portfolio+1&portfolioName2=Portfolio+2&portfolioName3=Portfolio+3&symbol1=BKLN&allocation1_1=7.5&symbol2=FMF&allocation2_1=15.9&symbol3=LEMB&allocation3_1=5.5&symbol4=PDBC&allocation4_1=6.1&symbol5=PPDM&allocation5_1=5.5&symbol6=PPEM&allocation6_1=3.5&symbol7=PPLC&allocation7_1=3.0&symbol8=SGOL&allocation8_1=11.7&symbol9=VTIP&allocation9_1=24.7&symbol10=TYD&allocation10_1=7.6&symbol11=VNQ&allocation11_1=3.0&symbol12=VNQI&allocation12_1=3.0&symbol13=VWO&allocation13_1=3.0
