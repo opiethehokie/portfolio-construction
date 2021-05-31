@@ -32,7 +32,7 @@ def herc_model(returns, cov, linkage, metric):
 
 if __name__ == '__main__':
 
-  tickers = ['VTI','VEA','VWO','VNQ','VNQI','SGOL','PDBC','HYG','SCHP','TYD','BTAL','LEMB','FMF']
+  tickers = ['VTI','VEA','VWO','VNQ','VNQI','SGOL','PDBC','SCHP','TYD','LEMB','FMF','GBTC']
 
   multi_returns = get_returns()
   linkages = ['single', 'complete', 'ward']

@@ -8,7 +8,7 @@ from dateutil.relativedelta import relativedelta
 
 from cvxopt import matrix, solvers
 
-from lib import get_time_interval_returns, get_volume_bar_returns, bootstrap_returns, robust_covariances
+from lib import get_time_interval_returns, get_volume_bar_returns, bootstrap_returns, robust_covariances, print_stats
 
 def get_returns(end_date=date.today()):
   short_term_log = get_volume_bar_returns(tickers, date.today() + relativedelta(days=-59), date.today())
@@ -45,22 +45,19 @@ def kelly_weight_optimization(returns, cov, fraction=None, target_leverage=None,
 
 tickers = ['VTI','VXUS','BND','BNDX']
 
-econ_tree = pd.DataFrame(np.array([
-['VTI', 101010, 1010, 10],
-['VXUS', 102010, 1020, 10],
-['BND', 201010, 2010, 20],
-['BNDX', 202010, 2020, 20]
-]), columns=['TICKER', 'SECTOR', 'REGION', 'TYPE'])
-
 multi_returns = get_returns()
 allocations = []
 
 for returns in multi_returns:
     returns = bootstrap_returns(returns, method='block')
-    covs = robust_covariances(returns, econ_tree)
+    covs = robust_covariances(returns)
     for cov in covs:
         cov = pd.DataFrame(cov, index=tickers, columns=tickers)
         allocations.append(kelly_weight_optimization(returns, cov, target_leverage=1, long_only=True))
 
 soft_majority_vote = pd.concat(allocations).groupby(level=0).mean().round(3) # simple bagging ensemble
 print(soft_majority_vote)
+
+returns = get_time_interval_returns(tickers, date.today() + relativedelta(years=-5), date.today(), return_type='log')
+weights = soft_majority_vote[0].values / 100
+print_stats(returns, weights, 250)
