@@ -7,10 +7,7 @@ import pandas as pd
 
 from lib import get_time_interval_returns, get_volume_bar_returns, bootstrap_returns, robust_covariances, print_stats
 
-from mlfinlab.portfolio_optimization.herc import HierarchicalEqualRiskContribution
-
-# graph theory (tree instead of complete correlation graph) and machine learning (clustering) based optimization that's an
-# instability, concentration, and underperformance improvement on convex optimization (quadratic programming)
+from mlfinlab_local.herc import HierarchicalEqualRiskContribution
 
 def get_returns(end_date=date.today()):
   return [
@@ -36,14 +33,12 @@ if __name__ == '__main__':
   pool = mp.Pool(4)
   allocations = []
 
-  for _ in range(1): # mini monte carlo to help randomness stabalize
-    for returns in multi_returns:
-      returns = bootstrap_returns(returns, method='block')
-      covs = robust_covariances(returns)
-      for cov in covs:
-        for linkage in linkages:
-          for metric in metrics:
-            pool.apply_async(herc_model, args=(returns, cov, linkage, metric), callback=lambda result: allocations.append(result))
+  for returns in multi_returns:
+    covs = robust_covariances(returns) + robust_covariances(bootstrap_returns(returns, method='block'))
+    for cov in covs:
+      for linkage in linkages:
+        for metric in metrics:
+          pool.apply_async(herc_model, args=(returns, cov, linkage, metric), callback=lambda result: allocations.append(result))
 
   pool.close()
   pool.join()

@@ -1,7 +1,4 @@
 import math
-import os
-import sys
-import warnings
 
 from datetime import timedelta
 
@@ -13,22 +10,33 @@ import requests_cache
 import scipy.stats as ss
 import yfinance as yf
 
-sys.stdout = open(os.devnull, "w")
-from mlfinlab.data_structures import standard_data_structures
-sys.stdout = sys.__stdout__
-
-from mlfinlab_mods import get_mutual_info, gnpr_distance
-
-from mlfinlab.features.fracdiff import frac_diff
-from mlfinlab.codependence.correlation import distance_correlation, angular_distance
-from mlfinlab.portfolio_optimization.risk_estimators import RiskEstimators
-warnings.simplefilter(action='ignore', category=FutureWarning)
 from pandas_datareader import data as pdr
 from scipy.cluster.hierarchy import cophenet
 from sklearn.utils import resample
-from statsmodels.tsa.stattools import adfuller
+#from statsmodels.tsa.stattools import adfuller
+
+from mlfinlab_local.correlation import distance_correlation, angular_distance
+from mlfinlab_local.fracdiff import frac_diff
+from mlfinlab_local.gnpr_distance import gnpr_distance
+from mlfinlab_local.information import get_mutual_info
+from mlfinlab_local.risk_estimators import RiskEstimators
+from mlfinlab_local.standard_data_structures import get_volume_bars
 
 yf.pdr_override()
+
+#TODO cusum filter returns for only larger events in hrp?
+#TODO replace my bootstrap with mlfinlab's in hrp
+#TODO sharpe ratio to my stats
+
+#TODO verify corrgan data
+#TODO monte carlo backtest with stats for kelly (because it's fast enough)
+#TODO could I use it as a sleeve in Roth IRA?
+
+#TODO sequential bagging (see book chap 6) on corr matrix features to classify regimes (y is unsupervised from (3?) clusters)
+#TODO purged k-fold for classification CV (see book chap 7/9)
+#TODO MDI/MDA feature importance for classification
+#TODO can this feed back into kelly leverage? re-backtest and don't forget 3 rules
+
 
 def get_time_interval_returns(tickers, start, end, return_type='percent', interval='1d'):
   session = requests_cache.CachedSession(backend='sqlite', expire_after=timedelta(days=1))
@@ -53,8 +61,8 @@ def get_volume_bar_returns(tickers, start, end, log=True):
   market_proxy_data.reset_index(level=0, inplace=True)
   market_proxy_data = pd.concat([market_proxy_data['Datetime'], market_proxy_data['Close'], market_proxy_data['Volume']], axis=1)
   market_proxy_data.columns = ['date', 'price', 'volume']
-  avg_market_proxy_daily_volume = market_proxy_data['volume'].sum() / 59
-  market_proxy_bars = standard_data_structures.get_volume_bars(market_proxy_data, threshold=avg_market_proxy_daily_volume, verbose=False)
+  avg_market_proxy_daily_volume = market_proxy_data['volume'].sum() / (end - start).days
+  market_proxy_bars = get_volume_bars(market_proxy_data, threshold=avg_market_proxy_daily_volume, verbose=False)
   data = pdr.get_data_yahoo(tickers, start=start, end=end, session=session, interval='5m', auto_adjust=True).fillna(method='ffill').fillna(method='bfill')
   # sample tickers using SPY's volume bar date times
   bars = data[data.index.isin(market_proxy_bars['date_time'])]

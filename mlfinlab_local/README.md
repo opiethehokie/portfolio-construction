@@ -1,0 +1,2 @@
+These mlfinlab_local files are sourced from https://github.com/hudson-and-thames/mlfinlab/tree/master/mlfinlab. They were open-sourced to use 
+as-is, with all other rights reserved, then later removed from GitHub.
