@@ -18,7 +18,7 @@ def get_returns(end_date=date.today()):
 # https://epchan.blogspot.com/2014/08/kelly-vs-markowitz-portfolio.html?m=1
 # https://github.com/jeromeku/Python-Financial-Tools/blob/master/portfolio.py
 # https://github.com/thk3421-models/KellyPortfolio/blob/main/kelly.py
-def kelly_weight_optimization(returns, cov, trading_periods=52, opt_leverage=1000.0, actual_leverage=2.0):
+def kelly_weight_optimization(returns, cov, trading_periods=52, opt_leverage=1000.0, actual_leverage=2.0): #TODO best values for these
   C = cov * trading_periods
   M = returns.mean() * trading_periods
   #F = np.linalg.inv(C) @ M
@@ -52,4 +52,4 @@ print(soft_majority_vote)
 
 returns = get_time_interval_returns(tickers, date.today() + relativedelta(days=-30), date.today(), return_type='log')
 weights = soft_majority_vote[0].values / 100
-print_stats(returns, weights, 252)
+print_stats(returns, weights)

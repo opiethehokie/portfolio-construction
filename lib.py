@@ -15,7 +15,9 @@ from scipy.cluster.hierarchy import cophenet
 from sklearn.utils import resample
 #from statsmodels.tsa.stattools import adfuller
 
+from corrgan import sample
 from mlfinlab_local.correlation import distance_correlation, angular_distance
+from mlfinlab_local.filters import cusum_filter
 from mlfinlab_local.fracdiff import frac_diff
 from mlfinlab_local.gnpr_distance import gnpr_distance
 from mlfinlab_local.information import get_mutual_info
@@ -24,13 +26,8 @@ from mlfinlab_local.standard_data_structures import get_volume_bars
 
 yf.pdr_override()
 
-#TODO cusum filter returns for only larger events in hrp?
-#TODO replace my bootstrap with mlfinlab's in hrp
-#TODO sharpe ratio to my stats
 
-#TODO verify corrgan data
 #TODO monte carlo backtest with stats for kelly (because it's fast enough)
-#TODO could I use it as a sleeve in Roth IRA?
 
 #TODO sequential bagging (see book chap 6) on corr matrix features to classify regimes (y is unsupervised from (3?) clusters)
 #TODO purged k-fold for classification CV (see book chap 7/9)
@@ -54,7 +51,7 @@ def get_time_interval_returns(tickers, start, end, return_type='percent', interv
   return returns.dropna()
 
 # https://mlfinlab.readthedocs.io/en/latest/implementations/data_structures.html#volume-bars
-def get_volume_bar_returns(tickers, start, end, log=True):
+def get_volume_bar_returns(tickers, start, end):
   session = requests_cache.CachedSession(backend='sqlite', expire_after=timedelta(days=1))
   # use S&P 500 as a volume proxy instead of tring to combine basket of volume bars
   market_proxy_data = pdr.get_data_yahoo('SPY', start=start, end=end, session=session, interval='5m', auto_adjust=True)
@@ -66,7 +63,19 @@ def get_volume_bar_returns(tickers, start, end, log=True):
   data = pdr.get_data_yahoo(tickers, start=start, end=end, session=session, interval='5m', auto_adjust=True).fillna(method='ffill').fillna(method='bfill')
   # sample tickers using SPY's volume bar date times
   bars = data[data.index.isin(market_proxy_bars['date_time'])]
-  returns = pd.DataFrame(np.log(bars['Close'])).diff() if log else bars['Close'].pct_change(1)
+  returns = pd.DataFrame(np.log(bars['Close'])).diff()
+  return returns.dropna()
+
+def get_filtered_returns(tickers, start, end):
+  session = requests_cache.CachedSession(backend='sqlite', expire_after=timedelta(days=1))
+  # use S&P 500 as an a price event proxy instead of tring to combine basket of price events
+  market_proxy_data = pdr.get_data_yahoo('SPY', start=start, end=end, session=session, interval='1d', auto_adjust=True)
+  market_proxy_daily_log_std = np.diff(np.log(market_proxy_data['Close'])).std() * 2
+  market_proxy_events = cusum_filter(market_proxy_data['Close'], threshold=market_proxy_daily_log_std)
+  data = pdr.get_data_yahoo(tickers, start=start, end=end, session=session, interval='1d', auto_adjust=True).fillna(method='ffill').fillna(method='bfill')
+  # sample tickers using SPY's volume bar date times
+  events = data.loc[market_proxy_events]
+  returns = pd.DataFrame(np.log(events['Close'])).diff()
   return returns.dropna()
 
 # https://blog.thinknewfound.com/2016/10/shock-covariance-system/
@@ -87,7 +96,7 @@ def shock_cov_matrix(returns, n=1):
 
 # https://hudsonthames.org/portfolio-optimisation-with-mlfinlab-estimation-of-risk/
 def robust_covariances(returns):
-  return [
+  covs = [
     RiskEstimators().minimum_covariance_determinant(returns, price_data=False),
     RiskEstimators().empirical_covariance(returns, price_data=False),
     RiskEstimators().shrinked_covariance(returns, price_data=False, shrinkage_type='lw'),
@@ -100,6 +109,10 @@ def robust_covariances(returns):
     RiskEstimators().denoise_covariance(returns.cov(), returns.shape[0] / returns.shape[1], denoise_method='const_resid_eigen', detone=True),
     shock_cov_matrix(returns)
   ]
+  return covs
+
+def sythetic_covariances(returns, n=1):
+  return [RiskEstimators.corr_to_cov(sample(), returns.std()) for _ in range(n)]
 
 # https://mlfinlab.readthedocs.io/en/latest/data_generation/bootstrap.html
 def bootstrap_returns(returns, method='row'):
@@ -112,16 +125,18 @@ def bootstrap_returns(returns, method='row'):
 
 # https://investresolve.com/blog/tag/independent-bets/
 # https://thequantmba.wordpress.com/2017/06/06/max-diversification-in-python/
-def print_stats(returns, weights, trading_periods):
-  weighted_returns = returns * weights
+def print_stats(daily_returns, weights):
+  weighted_returns = daily_returns * weights
   weighted_portfolio_returns = np.sum(weighted_returns, axis=1)
-  weighted_var = weights.T @ returns.cov() @ weights
-  portfolio_vol = np.sqrt(trading_periods * weighted_var) * 100
-  independent_bets = np.divide(weights.T @ returns.std(), np.sqrt(weighted_var))**2
+  weighted_var = weights.T @ daily_returns.cov() @ weights
+  portfolio_vol = np.sqrt(weighted_var * 252)
+  portfolio_sharpe = (weighted_portfolio_returns.mean() * 252) / portfolio_vol
+  independent_bets = np.divide(weights.T @ daily_returns.std(), np.sqrt(weighted_var))**2
   portfolio_skew = ss.skew(weighted_portfolio_returns) / np.sqrt(12)
   portfolio_kurtosis = ss.kurtosis(weighted_portfolio_returns) / 12
-  #print(returns.corr())
-  print('total annual vol: %.2f%%' % portfolio_vol)
+  #print(daily_returns.corr()
+  print('annualized vol: %.2f%%' % (portfolio_vol * 100))
+  print('annualized sharpe ratio: %.2f' % portfolio_sharpe)
   print('independent bets: %.2f' % independent_bets)
   print('monthly skew: %.2f (positive good)' % portfolio_skew)
   print('monthly kurtosis: %.2f (fat tails above 0)' % portfolio_kurtosis)
