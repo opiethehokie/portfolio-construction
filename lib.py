@@ -128,7 +128,7 @@ def print_stats(daily_returns, weights):
   portfolio_kurtosis = ss.kurtosis(weighted_portfolio_returns) / 12
   #print(daily_returns.corr()
   print('annualized vol: %.2f%%' % (portfolio_vol * 100))
-  print('annualized sharpe ratio: %.2f' % portfolio_sharpe) #TODO use Sortino instead to focus on downside risk
+  print('annualized sharpe ratio: %.2f' % portfolio_sharpe) #TODO use Sortino to focus on downside risk
   print('independent bets: %.2f' % independent_bets)
   print('monthly skew: %.2f (positive good)' % portfolio_skew)
   print('monthly kurtosis: %.2f (fat tails above 0)' % portfolio_kurtosis)
