@@ -5,17 +5,19 @@ from dateutil.relativedelta import relativedelta
 
 import pandas as pd
 
-from lib import get_time_interval_returns, get_volume_bar_returns, bootstrap_returns, robust_covariances, print_stats, get_filtered_returns, sythetic_covariances
+from lib import get_time_interval_returns, get_volume_bar_returns, bootstrap_returns, robust_covariances, print_stats, get_filtered_returns#, sythetic_covariances
 
-from mlfinlab_local.herc import HierarchicalEqualRiskContribution
+from mlfinlab.herc import HierarchicalEqualRiskContribution
+
+# benchmark should be RPAR ETF (about 120% notional)
 
 def get_returns(end_date=date.today()):
   return [
     get_volume_bar_returns(tickers, end_date + relativedelta(days=-59), end_date),
-    get_time_interval_returns(tickers, end_date + relativedelta(months=-24), end_date, return_type='fractional', interval='1d'),
-    get_time_interval_returns(tickers, end_date + relativedelta(months=-36), end_date, interval='1wk'),
-    get_time_interval_returns(tickers, end_date + relativedelta(months=-60), end_date, interval='1mo'),
-    get_filtered_returns(tickers, end_date + relativedelta(months=-60), end_date)
+    get_time_interval_returns(tickers, end_date + relativedelta(months=-12), end_date, return_type='fractional', interval='1d'),
+    get_time_interval_returns(tickers, end_date + relativedelta(months=-6), end_date, interval='1wk'),
+    get_time_interval_returns(tickers, end_date + relativedelta(months=-24), end_date, interval='1mo'),
+    get_filtered_returns(tickers, end_date + relativedelta(months=-24), end_date)
   ]
 
 # https://mlfinlab.readthedocs.io/en/latest/portfolio_optimisation/hierarchical_equal_risk_contribution.html
@@ -26,8 +28,8 @@ def herc_model(returns, cov, linkage, metric):
 
 if __name__ == '__main__':
 
-  #tickers = ['VTI','VEA','VWO','VNQ','VNQI','SGOL','PDBC','SCHP','TYD','LEMB','FMF','GBTC']
-  tickers = ['VNQ','VEA','LEMB','VNQI','VWO','SGOL','VTI','GBTC','TYD','FMF','PDBC','SCHP']
+  tickers = ['VTI','VEA','VWO','VNQ','VNQI','PDBC','SCHP','VGLT','WTMF','GBTC','ETHE','SGOL']
+  #tickers = ['VNQ','VEA','LEMB','VNQI','VWO','SGOL','VTI','GBTC','TYD','FMF','PDBC','SCHP']
 
   multi_returns = get_returns()
   linkages = ['single', 'complete', 'ward']

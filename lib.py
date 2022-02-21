@@ -16,23 +16,15 @@ from sklearn.utils import resample
 #from statsmodels.tsa.stattools import adfuller
 
 from corrgan import sample
-from mlfinlab_local.correlation import distance_correlation, angular_distance
-from mlfinlab_local.filters import cusum_filter
-from mlfinlab_local.fracdiff import frac_diff
-from mlfinlab_local.gnpr_distance import gnpr_distance
-from mlfinlab_local.information import get_mutual_info
-from mlfinlab_local.risk_estimators import RiskEstimators
-from mlfinlab_local.standard_data_structures import get_volume_bars
+from mlfinlab.correlation import distance_correlation, angular_distance
+from mlfinlab.filters import cusum_filter
+from mlfinlab.fracdiff import frac_diff
+from mlfinlab.gnpr_distance import gnpr_distance
+from mlfinlab.information import get_mutual_info
+from mlfinlab.risk_estimators import RiskEstimators
+from mlfinlab.standard_data_structures import get_volume_bars
 
 yf.pdr_override()
-
-
-#TODO monte carlo backtest with stats for kelly (because it's fast enough)
-
-#TODO sequential bagging (see book chap 6) on corr matrix features to classify regimes (y is unsupervised from (3?) clusters)
-#TODO purged k-fold for classification CV (see book chap 7/9)
-#TODO MDI/MDA feature importance for classification
-#TODO can this feed back into kelly leverage? re-backtest and don't forget 3 rules
 
 
 def get_time_interval_returns(tickers, start, end, return_type='percent', interval='1d'):
@@ -136,7 +128,7 @@ def print_stats(daily_returns, weights):
   portfolio_kurtosis = ss.kurtosis(weighted_portfolio_returns) / 12
   #print(daily_returns.corr()
   print('annualized vol: %.2f%%' % (portfolio_vol * 100))
-  print('annualized sharpe ratio: %.2f' % portfolio_sharpe)
+  print('annualized sharpe ratio: %.2f' % portfolio_sharpe) #TODO use Sortino instead to focus on downside risk
   print('independent bets: %.2f' % independent_bets)
   print('monthly skew: %.2f (positive good)' % portfolio_skew)
   print('monthly kurtosis: %.2f (fat tails above 0)' % portfolio_kurtosis)

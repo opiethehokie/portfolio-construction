@@ -1,4 +1,4 @@
-from mlfinlab_local.risk_estimators import RiskEstimators
+from mlfinlab.risk_estimators import RiskEstimators
 import os
 import time
 
