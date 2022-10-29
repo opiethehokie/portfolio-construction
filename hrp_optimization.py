@@ -5,11 +5,10 @@ from dateutil.relativedelta import relativedelta
 
 import pandas as pd
 
-from lib import get_time_interval_returns, get_volume_bar_returns, bootstrap_returns, robust_covariances, print_stats, get_filtered_returns#, sythetic_covariances
+from lib import get_time_interval_returns, get_volume_bar_returns, bootstrap_returns, robust_covariances, print_stats, get_filtered_returns
 
 from mlfinlab.herc import HierarchicalEqualRiskContribution
 
-# benchmark should be RPAR ETF (about 120% notional)
 
 def get_returns(end_date=date.today()):
   return [
@@ -29,7 +28,6 @@ def herc_model(returns, cov, linkage, metric):
 if __name__ == '__main__':
 
   tickers = ['VTI','VEA','VWO','VNQ','VNQI','PDBC','SCHP','VGLT','WTMF','GBTC','ETHE','SGOL']
-  #tickers = ['VNQ','VEA','LEMB','VNQI','VWO','SGOL','VTI','GBTC','TYD','FMF','PDBC','SCHP']
 
   multi_returns = get_returns()
   linkages = ['single', 'complete', 'ward']
@@ -39,7 +37,6 @@ if __name__ == '__main__':
 
   for returns in multi_returns:
     covs = robust_covariances(returns) + robust_covariances(bootstrap_returns(returns, method='block'))
-    #covs = sythetic_covariances(returns, n=25)
     for cov in covs:
       for linkage in linkages:
         for metric in metrics:
@@ -51,6 +48,6 @@ if __name__ == '__main__':
   soft_majority_vote = pd.concat(allocations).groupby(level=0).mean().round(3) * 100 # simple bagging ensemble
   print(soft_majority_vote)
 
-  returns = get_time_interval_returns(tickers, date.today() + relativedelta(days=-60), date.today(), return_type='log')
+  returns = get_time_interval_returns(tickers, date.today() + relativedelta(days=-30), date.today(), return_type='log')
   weights = soft_majority_vote[0].values / 100
   print_stats(returns, weights)

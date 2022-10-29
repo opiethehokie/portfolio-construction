@@ -6,19 +6,20 @@ from dateutil.relativedelta import relativedelta
 
 from cvxopt import matrix, solvers
 
-from lib import get_time_interval_returns, robust_covariances, print_stats
+from lib import get_time_interval_returns, get_volume_bar_returns, robust_covariances, print_stats
 
 # https://breakingthemarket.com/convergence-time/
 def get_returns(end_date=date.today()):
   return [
-    get_time_interval_returns(tickers, end_date + relativedelta(months=-5), end_date, interval='1wk'),
-    get_time_interval_returns(tickers, end_date + relativedelta(months=-12), end_date, interval='1wk')
+    get_volume_bar_returns(tickers, end_date + relativedelta(days=-59), end_date).ewm(axis=1, com=.5).mean(),
+    get_time_interval_returns(tickers, end_date + relativedelta(months=-3), end_date, interval='1wk').ewm(axis=1, com=.5).mean(),
+    get_time_interval_returns(tickers, end_date + relativedelta(months=-6), end_date, return_type='log').ewm(axis=1, com=.5).mean()
   ]
 
 # https://epchan.blogspot.com/2014/08/kelly-vs-markowitz-portfolio.html?m=1
 # https://github.com/jeromeku/Python-Financial-Tools/blob/master/portfolio.py
 # https://github.com/thk3421-models/KellyPortfolio/blob/main/kelly.py
-def kelly_weight_optimization(returns, cov, trading_periods=52, opt_leverage=1000.0, actual_leverage=2.0):
+def kelly_weight_optimization(returns, cov, trading_periods=52, opt_leverage=1000.0, actual_leverage=1):
   C = cov * trading_periods
   M = returns.mean() * trading_periods
   #F = np.linalg.inv(C) @ M
@@ -36,7 +37,7 @@ def kelly_weight_optimization(returns, cov, trading_periods=52, opt_leverage=100
   F *= (actual_leverage / opt_leverage)
   return pd.DataFrame.from_dict({ ticker : np.round(weight * 100, 1) for ticker, weight in zip(returns.columns.values.tolist(), F)}, orient='index')
 
-tickers = ['VOO', 'TLT', 'SGOL', 'MINT']
+tickers = ['DBMF', 'FIG', 'UPAR']
 
 multi_returns = get_returns()
 allocations = []

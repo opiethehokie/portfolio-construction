@@ -1,5 +1,4 @@
 from mlfinlab.risk_estimators import RiskEstimators
-import os
 import time
 
 from datetime import date
@@ -77,6 +76,7 @@ discriminator_optimizer = tf.keras.optimizers.Adam(1e-4)
 
 def make_dataset(corrs):
   corrs = np.array(corrs).reshape(-1, n, n).astype('float32')
+  #TODO this needs to be reproducible
   #for i, corr in enumerate(corrs):
   #  permutation = corr.sum(axis=1).argsort()
   #  prows = corr[permutation, :]
@@ -144,6 +144,9 @@ if __name__ == "__main__":
   dataset = make_dataset(shuffle(corrs))
 
   train(dataset)
+
+
+  #TODO turn these into tests
 
   #a, b = np.triu_indices(n, k=1)
 
